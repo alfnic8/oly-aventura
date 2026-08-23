@@ -1,5 +1,7 @@
 export function isTouchPlay() {
-  return window.matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
+  const coarse = window.matchMedia('(pointer: coarse)').matches;
+  const noHover = window.matchMedia('(hover: none)').matches;
+  return coarse && noHover;
 }
 
 export const TOUCH_BAR_PX = 112;
@@ -16,6 +18,7 @@ export function setTouchPlayMode(active) {
 }
 
 export async function enterLandscapePlay() {
+  if (!isTouchPlay()) return;
   try {
     const root = document.documentElement;
     if (!document.fullscreenElement) {

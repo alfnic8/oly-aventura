@@ -4,6 +4,8 @@
 import Phaser from 'phaser';
 import { FACE_DEFAULTS } from './faceConfig.js';
 
+const FACE_SIZE = 128;
+
 function applyCircleEdge(ctx, size, cx, cy, r) {
   const imgData = ctx.getImageData(0, 0, size, size);
   const d = imgData.data;
@@ -15,8 +17,8 @@ function applyCircleEdge(ctx, size, cx, cy, r) {
       const i = (y * size + x) * 4;
       if (dist > r) {
         d[i + 3] = 0;
-      } else if (dist > r - 2) {
-        const fade = (r - dist) / 2;
+      } else if (dist > r - 2.5) {
+        const fade = (r - dist) / 2.5;
         d[i + 3] = Math.floor(d[i + 3] * Math.max(0, fade));
       }
     }
@@ -28,20 +30,23 @@ export function buildFaceTexture(scene, sourceKey, targetKey = 'oly-face', cfg =
   if (!scene.textures.exists(sourceKey)) return false;
 
   const src = scene.textures.get(sourceKey).getSourceImage();
-  const size = 128;
-  const cx = size / 2 + cfg.maskOffsetX * size;
-  const cy = size / 2 + cfg.maskOffsetY * size;
-  const r = size * cfg.maskRadius;
+  const size = FACE_SIZE;
+  const cx = size / 2 + (cfg.maskOffsetX || 0) * size;
+  const cy = size / 2 + (cfg.maskOffsetY || 0) * size;
+  const r = size * (cfg.maskRadius ?? 0.5);
 
-  if (scene.textures.exists(targetKey)) scene.textures.remove(targetKey);
+  // Siempre regenerar a 128x128: createTextures deja un canvas 64x64 cartoon.
+  if (scene.textures.exists(targetKey)) {
+    scene.textures.remove(targetKey);
+  }
   const tex = scene.textures.createCanvas(targetKey, size, size);
   const ctx = tex.getContext();
 
   const sw = src.width;
   const sh = src.height;
   const cropSize = Math.min(sw, sh * cfg.cropSize);
-  const sx = sw * cfg.cropCenterX - cropSize / 2;
-  const sy = sh * cfg.cropTop;
+  const sx = Phaser.Math.Clamp(sw * cfg.cropCenterX - cropSize / 2, 0, Math.max(0, sw - cropSize));
+  const sy = Phaser.Math.Clamp(sh * cfg.cropTop, 0, Math.max(0, sh - cropSize));
 
   const drawSize = size * cfg.drawScale;
   const offsetX = (size - drawSize) / 2 + cfg.drawOffsetX * size;
@@ -51,6 +56,7 @@ export function buildFaceTexture(scene, sourceKey, targetKey = 'oly-face', cfg =
   ctx.save();
   ctx.beginPath();
   ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.closePath();
   ctx.clip();
   ctx.drawImage(src, sx, sy, cropSize, cropSize, offsetX, offsetY, drawSize, drawSize);
   ctx.restore();

@@ -72,14 +72,26 @@ export function mountVirtualStick(container, onDir) {
   };
 }
 
-export function mountJumpButton(btn, onJump) {
+export function mountJumpButton(btn, onJumpDown, onJumpUp) {
   if (!btn) return () => {};
 
-  const jump = (ev) => {
+  const down = (ev) => {
     ev.preventDefault();
-    onJump();
+    onJumpDown?.();
+  };
+  const up = (ev) => {
+    ev.preventDefault();
+    onJumpUp?.();
   };
 
-  btn.addEventListener('pointerdown', jump);
-  return () => btn.removeEventListener('pointerdown', jump);
+  btn.addEventListener('pointerdown', down);
+  btn.addEventListener('pointerup', up);
+  btn.addEventListener('pointercancel', up);
+  btn.addEventListener('pointerleave', up);
+  return () => {
+    btn.removeEventListener('pointerdown', down);
+    btn.removeEventListener('pointerup', up);
+    btn.removeEventListener('pointercancel', up);
+    btn.removeEventListener('pointerleave', up);
+  };
 }

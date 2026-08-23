@@ -56,8 +56,11 @@ export class Oly {
     this.wasd = this.staticPreview ? null : scene.input.keyboard.addKeys('W,A,S,D');
     this.speed = 220;
     this.jumpSpeed = -560;
+    this.jumpCutMult = 0.42;
     this.touchDir = 0;
     this.wantJump = false;
+    this.jumpHeld = false;
+    this.jumping = false;
     this.coyote = 0;
     this.invuln = 0;
     this.facing = 1;
@@ -75,7 +78,10 @@ export class Oly {
     this.face.setDisplaySize(s, s);
     this.face.setPosition(cfg.spriteX, cfg.spriteY);
     this.halo.setPosition(cfg.spriteX, cfg.spriteY);
-    this.crown.setPosition(cfg.crownX, cfg.crownY);
+    this.halo.radius = s * 0.49;
+    const crownX = cfg.crownX ?? cfg.spriteX;
+    const crownY = cfg.crownY ?? cfg.spriteY - 15;
+    this.crown.setPosition(crownX, crownY);
   }
 
   setPosition(x, y) {
@@ -89,6 +95,11 @@ export class Oly {
 
   requestJump() {
     this.wantJump = true;
+    this.jumpHeld = true;
+  }
+
+  releaseJump() {
+    this.jumpHeld = false;
   }
 
   update(_, dt) {
@@ -98,6 +109,7 @@ export class Oly {
     const onFloor = this.body.blocked.down || this.body.touching.down;
     this.coyote = onFloor ? 80 : Math.max(0, this.coyote - dt);
     this.invuln = Math.max(0, this.invuln - dt);
+    if (onFloor) this.jumping = false;
 
     let dir = this.touchDir;
     if (this.cursors.left.isDown || this.wasd.A.isDown) dir = -1;
@@ -111,25 +123,42 @@ export class Oly {
       this.sprite.setVelocityX(0);
     }
 
-    const jumpPressed =
+    const keyJumpDown =
       Phaser.Input.Keyboard.JustDown(this.cursors.up) ||
       Phaser.Input.Keyboard.JustDown(this.cursors.space) ||
-      Phaser.Input.Keyboard.JustDown(this.wasd.W) ||
-      this.wantJump;
+      Phaser.Input.Keyboard.JustDown(this.wasd.W);
+    const keyJumpHeld =
+      this.cursors.up.isDown ||
+      this.cursors.space.isDown ||
+      this.wasd.W.isDown;
+
+    const jumpPressed = keyJumpDown || this.wantJump;
     this.wantJump = false;
+    const jumpHeld = keyJumpHeld || this.jumpHeld;
 
     if (jumpPressed && this.coyote > 0) {
       this.sprite.setVelocityY(this.jumpSpeed);
       this.coyote = 0;
+      this.jumping = true;
       this.scene.sound.play('jump', { volume: 0.4 });
     }
+
+    // Soltar temprano = salto corto; mantener = altura completa
+    if (this.jumping && !jumpHeld && this.body.velocity.y < -40) {
+      this.sprite.setVelocityY(this.body.velocity.y * this.jumpCutMult);
+      this.jumping = false;
+    }
+    if (this.body.velocity.y >= 0) this.jumping = false;
 
     this.bob += dt * 0.012;
     const bounce = onFloor && dir !== 0 ? Math.sin(this.bob) * 2 : 0;
     this.bodySpr.y = -14 + bounce;
     this.face.setPosition(this.faceCfg.spriteX, this.faceCfg.spriteY + bounce);
     this.halo.setPosition(this.faceCfg.spriteX, this.faceCfg.spriteY + bounce);
-    this.crown.setPosition(this.faceCfg.crownX, this.faceCfg.crownY + bounce);
+    this.halo.radius = this.faceCfg.spriteSize * 0.49;
+    const crownX = this.faceCfg.crownX ?? this.faceCfg.spriteX;
+    const crownY = this.faceCfg.crownY ?? this.faceCfg.spriteY - 15;
+    this.crown.setPosition(crownX, crownY + bounce);
 
     const flicker = this.invuln > 0 && Math.floor(this.invuln / 80) % 2 === 0;
     this.view.setAlpha(flicker ? 0.35 : 1);

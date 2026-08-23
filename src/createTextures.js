@@ -152,7 +152,7 @@ export function createTextures(scene) {
   canvasTex(scene, 'bat-0', 52, 36, (ctx) => drawBat(ctx, 0));
   canvasTex(scene, 'bat-1', 52, 36, (ctx) => drawBat(ctx, 1));
 
-  canvasTex(scene, 'oly-face', 64, 64, (ctx) => drawOlyFace(ctx));
+  canvasTex(scene, 'oly-face-fallback', 64, 64, (ctx) => drawOlyFace(ctx));
 
   canvasTex(scene, 'oly-hit', 32, 56, (ctx, w, h) => {
     ctx.fillStyle = 'rgba(255,255,255,0.01)';

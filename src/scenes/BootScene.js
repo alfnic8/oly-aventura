@@ -32,7 +32,11 @@ export class BootScene extends Phaser.Scene {
 
   create() {
     createTextures(this);
-    buildFaceTexture(this, 'oly-face-photo-src', 'oly-face', loadFaceConfig());
+    const ok = buildFaceTexture(this, 'oly-face-photo-src', 'oly-face', loadFaceConfig());
+    if (!ok && this.textures.exists('oly-face-fallback')) {
+      // Si falla la foto, al menos hay un placeholder
+      console.warn('No se pudo generar la cara desde la foto');
+    }
     if (this.textures.exists('oly-portada')) {
       this.textures.get('oly-portada').setFilter(Phaser.Textures.FilterMode.NEAREST);
     }

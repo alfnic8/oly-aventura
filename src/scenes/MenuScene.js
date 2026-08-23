@@ -98,12 +98,12 @@ export class MenuScene extends Phaser.Scene {
 
     unlockAudio(this);
     startMusic(this, { menu: false });
+    this.hidePortada();
+    this.sound.play('click', { volume: 0.35 });
+    this.scene.start('game', { level: 0 });
 
     enterLandscapePlay().then(() => {
       startMusic(this, { menu: false });
-      this.hidePortada();
-      this.sound.play('click', { volume: 0.35 });
-      this.scene.start('game', { level: 0 });
-    });
+    }).catch(() => {});
   }
 }

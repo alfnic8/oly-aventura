@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { WIDTH, HEIGHT } from '../config.js';
 import { Oly } from '../player/Oly.js';
 import { mountFaceTune } from '../faceTune.js';
+import { isTouchPlay } from '../mobile.js';
 
 function hideGameUi() {
   ['portada', 'banner', 'btn-exit-game', 'touch'].forEach((id) => {
@@ -51,7 +52,7 @@ export class FaceTuneScene extends Phaser.Scene {
       }).setOrigin(0.5).setDepth(100);
     }
 
-    this.add.text(WIDTH / 2, HEIGHT - 22, 'F9 o ESC = volver', {
+    this.add.text(WIDTH / 2, HEIGHT - 22, isTouchPlay() ? 'Tocá GUARDAR o VOLVER abajo' : 'F9 o ESC = guardar y volver', {
       fontFamily: 'Fredoka, Arial',
       fontSize: 16,
       color: '#fff7fb',

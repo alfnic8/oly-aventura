@@ -67,7 +67,10 @@ export class GameScene extends Phaser.Scene {
     this.crown.body.setAllowGravity(false);
     this.tweens.add({ targets: this.crown, y: this.crown.y - 10, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
 
+    const faceCfg = loadFaceConfig();
+    buildFaceTexture(this, 'oly-face-photo-src', 'oly-face', faceCfg);
     this.oly = new Oly(this, this.level.spawn.x, this.level.spawn.y);
+    this.oly.applyFaceLayout(faceCfg);
     this.cameras.main.startFollow(this.oly.sprite, true, 0.12, 0.12);
     this.cameras.main.setDeadzone(80, 60);
     if (isTouchPlay()) this.cameras.main.setFollowOffset(0, 0);
@@ -291,6 +294,7 @@ export class GameScene extends Phaser.Scene {
     this.unmountJump = mountJumpButton(
       document.getElementById('touch-jump'),
       () => { if (this.oly) this.oly.requestJump(); },
+      () => { if (this.oly) this.oly.releaseJump(); },
     );
 
     this.time.delayedCall(0, () => {
@@ -379,12 +383,31 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  isStomp(bat) {
+    const body = this.oly.body;
+    const batBody = bat.body;
+    if (!body || !batBody) return false;
+
+    // Pies del personaje vs zona superior del murciélago (más permisivo)
+    const feetY = body.bottom;
+    const batTop = batBody.top;
+    const batMid = batBody.center.y;
+    const fromAbove = feetY <= batMid + 10 || this.oly.y <= bat.y - 2;
+    const falling = body.velocity.y > 20 || body.deltaY() > 1.5;
+    const landingOnHead = feetY <= batTop + 18 && this.oly.y < bat.y + 6;
+
+    return (fromAbove && falling) || (landingOnHead && body.velocity.y >= 0);
+  }
+
   hitEnemy(bat) {
-    if (!bat.active || this.finished) return;
-    const stomp = this.oly.body.velocity.y > 60 && this.oly.y < bat.y - 4;
-    if (stomp) {
+    if (!bat.active || this.finished || bat.getData('stomped')) return;
+    if (this.oly.invuln > 0 && !this.isStomp(bat)) return;
+
+    if (this.isStomp(bat)) {
+      bat.setData('stomped', true);
       bat.disableBody(true, true);
-      this.oly.sprite.setVelocityY(-280);
+      this.oly.sprite.setVelocityY(-320);
+      this.oly.invuln = Math.max(this.oly.invuln, 280);
       this.sound.play('stomp', { volume: 0.45 });
       this.addScore(150, bat.x, bat.y);
       this.burst(bat.x, bat.y, 0xc77dff);
@@ -569,6 +592,7 @@ export class GameScene extends Phaser.Scene {
     if (!this.oly) return;
     const cfg = loadFaceConfig();
     buildFaceTexture(this, 'oly-face-photo-src', 'oly-face', cfg);
+    this.oly.face.setTexture('oly-face');
     this.oly.applyFaceLayout(cfg);
   }
 

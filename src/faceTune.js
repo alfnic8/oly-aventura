@@ -1,5 +1,7 @@
 import { buildFaceTexture } from './faceFromPhoto.js';
 import { loadFaceConfig, saveFaceConfig, resetFaceConfig } from './faceConfig.js';
+import { WIDTH, HEIGHT } from './config.js';
+import { isTouchPlay } from './mobile.js';
 
 const STEP = 1;
 const FINE = 0.5;
@@ -20,15 +22,17 @@ function lines(cfg) {
     `Zoom      Z/X    scale=${cfg.drawScale}`,
     `Foto ↑↓   W/S    offY=${cfg.drawOffsetY}`,
     `Foto ←→   J/L    offX=${cfg.drawOffsetX}`,
-    'ENTER guardar · R reset · C copiar consola',
-    'F9 o ESC = volver',
+    'ENTER o GUARDAR = guardar · R reset · C copiar consola',
+    'F9, ESC o VOLVER = guardar y salir',
   ];
 }
 
 function rebuild(scene, oly, cfg) {
   buildFaceTexture(scene, 'oly-face-photo-src', 'oly-face', cfg);
-  oly.face.setTexture('oly-face');
-  oly.applyFaceLayout(cfg);
+  if (oly?.face) {
+    oly.face.setTexture('oly-face');
+    oly.applyFaceLayout(cfg);
+  }
 }
 
 export function mountFaceTune(scene, oly, options = {}) {
@@ -48,8 +52,16 @@ export function mountFaceTune(scene, oly, options = {}) {
     padding: { x: 10, y: 8 },
   }).setScrollFactor(0).setDepth(200).setVisible(active);
 
+  const saveCurrent = (message = '¡Guardado!') => {
+    const ok = saveFaceConfig(cfg);
+    panel.setText(`${lines(cfg).join('\n')}\n\n${ok ? message : 'Error al guardar'}`);
+    if (ok) console.log('Cara guardada:', JSON.stringify(cfg, null, 2));
+    return ok;
+  };
+
   const exitTune = () => {
     if (Date.now() - openedAt < EXIT_DELAY_MS) return;
+    saveFaceConfig(cfg);
     if (onExit) onExit();
     else {
       active = false;
@@ -107,9 +119,7 @@ export function mountFaceTune(scene, oly, options = {}) {
     }
 
     if (event.code === 'Enter') {
-      saveFaceConfig(cfg);
-      console.log('Cara guardada:', JSON.stringify(cfg, null, 2));
-      panel.setText(`${lines(cfg).join('\n')}\n\n¡Guardado!`);
+      saveCurrent();
       return;
     }
     if (event.code === 'KeyR') {
@@ -128,6 +138,26 @@ export function mountFaceTune(scene, oly, options = {}) {
 
   scene.input.keyboard.on('keydown', onKey);
   scene.events.once('shutdown', () => scene.input.keyboard.off('keydown', onKey));
+
+  if (isTouchPlay()) {
+    const btnStyle = {
+      fontFamily: 'Fredoka, Arial',
+      fontSize: 18,
+      color: '#0a0014',
+      backgroundColor: '#ffea00',
+      padding: { x: 14, y: 8 },
+    };
+    scene.add.text(WIDTH / 2 - 90, HEIGHT - 36, 'GUARDAR', btnStyle)
+      .setScrollFactor(0).setDepth(201).setInteractive({ useHandCursor: true })
+      .on('pointerdown', () => saveCurrent());
+    scene.add.text(WIDTH / 2 + 20, HEIGHT - 36, 'VOLVER', {
+      ...btnStyle,
+      color: '#fff7fb',
+      backgroundColor: '#5b2b16',
+    })
+      .setScrollFactor(0).setDepth(201).setInteractive({ useHandCursor: true })
+      .on('pointerdown', exitTune);
+  }
 
   if (active) {
     console.log('Modo ajuste de cara estático. F9 o ESC para volver.');
