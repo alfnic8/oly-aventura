@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { WIDTH, HEIGHT } from '../config.js';
 import { LEVELS } from '../levels.js';
 import { Oly } from '../player/Oly.js';
-import { playBgm } from '../audio.js';
+import { playBgm, bindAudioResume } from '../audio.js';
 import { isTouchPlay, TOUCH_BAR_PX } from '../mobile.js';
 
 export class GameScene extends Phaser.Scene {
@@ -73,6 +73,7 @@ export class GameScene extends Phaser.Scene {
     this.input.addPointer(3);
     this.buildHud();
     this.buildTouch();
+    bindAudioResume(this);
     playBgm(this);
     this.input.keyboard.on('keydown-ESC', () => this.togglePause());
     this.input.keyboard.on('keydown-P', () => this.togglePause());

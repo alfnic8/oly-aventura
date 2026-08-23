@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { WIDTH, HEIGHT } from '../config.js';
 import { enterLandscapePlay } from '../mobile.js';
-import { unlockAudio, playBgm } from '../audio.js';
+import { unlockAudio, playBgm, bindAudioResume } from '../audio.js';
 
 export class MenuScene extends Phaser.Scene {
   constructor() {
@@ -22,37 +22,44 @@ export class MenuScene extends Phaser.Scene {
     this.started = false;
     this.onJugar = () => this.startGame();
     this.btn.addEventListener('click', this.onJugar);
+    this.btn.addEventListener('touchstart', (ev) => {
+      ev.preventDefault();
+      this.startGame();
+    }, { passive: false });
     this.events.once('shutdown', () => this.hidePortada());
 
-    this.playIntro();
-    this.sound.once('unlocked', () => this.playIntro());
-    this.portada.addEventListener('pointerdown', (ev) => {
+    bindAudioResume(this);
+    this.onAudioTap = (ev) => {
       if (ev.target && ev.target.id === 'btn-jugar') return;
       unlockAudio(this);
-      this.playIntro();
-    });
-  }
-
-  playIntro() {
-    if (this.started) return;
-    if (this.sound.getAllPlaying().some((s) => s.key === 'intro')) return;
-    unlockAudio(this);
-    playBgm(this, { menu: true });
+      playBgm(this, { menu: true });
+    };
+    this.portada.addEventListener('touchstart', this.onAudioTap, { passive: true });
+    this.portada.addEventListener('pointerdown', this.onAudioTap);
   }
 
   hidePortada() {
     if (this.btn && this.onJugar) this.btn.removeEventListener('click', this.onJugar);
+    if (this.portada && this.onAudioTap) {
+      this.portada.removeEventListener('touchstart', this.onAudioTap);
+      this.portada.removeEventListener('pointerdown', this.onAudioTap);
+    }
     if (this.portada) this.portada.classList.remove('open');
   }
 
-  async startGame() {
+  startGame() {
     if (this.started) return;
     this.started = true;
-    await unlockAudio(this);
-    await enterLandscapePlay();
-    this.hidePortada();
+
+    unlockAudio(this);
     playBgm(this, { menu: false });
-    this.sound.play('click', { volume: 0.35 });
-    this.scene.start('game', { level: 0 });
+
+    enterLandscapePlay().then(() => {
+      unlockAudio(this);
+      playBgm(this, { menu: false });
+      this.hidePortada();
+      this.sound.play('click', { volume: 0.35 });
+      this.scene.start('game', { level: 0 });
+    });
   }
 }

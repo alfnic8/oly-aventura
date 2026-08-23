@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { WIDTH, HEIGHT } from './config.js';
+import { isIOS } from './audio.js';
 import { BootScene } from './scenes/BootScene.js';
 import { CreditsScene } from './scenes/CreditsScene.js';
 import { MenuScene } from './scenes/MenuScene.js';
@@ -28,7 +29,7 @@ const config = {
   input: {
     activePointers: 3,
   },
-  audio: { disableWebAudio: false },
+  audio: { disableWebAudio: isIOS() },
   scene: [BootScene, CreditsScene, MenuScene, GameScene],
 };
 
