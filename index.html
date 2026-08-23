@@ -366,26 +366,6 @@
       #install-desktop-hint[hidden] {
         display: none !important;
       }
-      .hint {
-        position: absolute;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        margin: 0;
-        padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
-        text-align: center;
-        font-family: 'Press Start 2P', monospace;
-        font-size: clamp(6px, 1.4vh, 9px);
-        line-height: 1.7;
-        color: #00f5ff;
-        background: linear-gradient(transparent, rgba(10, 0, 20, 0.9));
-        text-shadow: 0 0 8px #00f5ff;
-        pointer-events: none;
-        z-index: 4;
-      }
-      @media (hover: hover) and (pointer: fine) {
-        .hint { display: none; }
-      }
       #btn-mute-portada {
         position: absolute;
         top: calc(16px + env(safe-area-inset-top, 0px));
@@ -659,7 +639,6 @@
           <div class="portada-player-label"><span>PLAYER 1</span></div>
         </div>
       </div>
-      <p class="hint">PANTALLA APAISADA</p>
     </div>
     <audio id="oly-bgm" loop playsinline webkit-playsinline preload="auto" src="assets/sfx/intro.mp3"></audio>
     <div id="banner">

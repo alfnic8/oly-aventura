@@ -5,7 +5,7 @@ import { Oly } from '../player/Oly.js';
 import { startMusic, bindAutoMusic, toggleMusicMute, isMusicMuted } from '../audio.js';
 import { buildFaceTexture } from '../faceFromPhoto.js';
 import { loadFaceConfig } from '../faceConfig.js';
-import { isTouchPlay, setTouchPlayMode } from '../mobile.js';
+import { isTouchPlay, setTouchPlayMode, getHudInsets } from '../mobile.js';
 import { mountVirtualStick, mountJumpButton } from '../touchControls.js';
 import { openFaceTune } from '../faceTune.js';
 
@@ -84,9 +84,9 @@ export class GameScene extends Phaser.Scene {
     this.physics.add.overlap(this.oly.sprite, this.crown, () => this.winLevel());
 
     this.input.addPointer(3);
+    this.bindExitButton();
     this.buildHud();
     this.buildTouch();
-    this.bindExitButton();
     bindAutoMusic(this);
     startMusic(this);
     this.input.keyboard.on('keydown-ESC', () => this.togglePause());
@@ -173,33 +173,55 @@ export class GameScene extends Phaser.Scene {
   }
 
   buildHud() {
-    this.hud = this.add.container(0, 0).setScrollFactor(0).setDepth(20);
+    const touch = isTouchPlay();
+    this.hudBg = this.add.graphics().setScrollFactor(0).setDepth(19);
     this.heartIcons = [];
-    const heartsX = isTouchPlay() ? 88 : 24;
     for (let i = 0; i < MAX_HEARTS; i += 1) {
-      const h = this.add.image(heartsX + i * 32, 24, 'heart');
+      const h = this.add.image(0, 0, 'heart').setScrollFactor(0).setDepth(20);
+      if (touch) h.setScale(1.15);
       this.heartIcons.push(h);
-      this.hud.add(h);
     }
     this.refreshHearts();
-    this.scoreLabel = this.add.text(WIDTH - 20, 12, 'Puntos', {
-      fontFamily: 'Fredoka, Arial', fontSize: 15, color: '#5b2b16',
-    }).setOrigin(1, 0);
-    this.scoreText = this.add.text(WIDTH - 20, 28, String(this.score), {
-      fontFamily: 'Fredoka, Arial', fontSize: 26, color: '#5b2b16',
-      stroke: '#ffd76a', strokeThickness: 5,
-    }).setOrigin(1, 0);
+
+    const scoreStyle = touch
+      ? {
+        fontFamily: 'Fredoka, Arial',
+        fontSize: 15,
+        color: '#fff7fb',
+        backgroundColor: 'rgba(22, 12, 36, 0.72)',
+        padding: { x: 6, y: 2 },
+      }
+      : { fontFamily: 'Fredoka, Arial', fontSize: 15, color: '#5b2b16' };
+    const scoreNumStyle = touch
+      ? {
+        fontFamily: 'Fredoka, Arial',
+        fontSize: 26,
+        color: '#ffd76a',
+        stroke: '#160c24',
+        strokeThickness: 5,
+        backgroundColor: 'rgba(22, 12, 36, 0.72)',
+        padding: { x: 8, y: 3 },
+      }
+      : {
+        fontFamily: 'Fredoka, Arial',
+        fontSize: 26,
+        color: '#5b2b16',
+        stroke: '#ffd76a',
+        strokeThickness: 5,
+      };
+
+    this.scoreLabel = this.add.text(0, 0, 'Puntos', scoreStyle).setOrigin(1, 0).setScrollFactor(0).setDepth(20);
+    this.scoreText = this.add.text(0, 0, String(this.score), scoreNumStyle).setOrigin(1, 0).setScrollFactor(0).setDepth(20);
     this.levelText = this.add.text(WIDTH / 2, 22, this.level.title, {
-      fontFamily: 'Fredoka, Arial', fontSize: 26, color: '#fff7fb',
+      fontFamily: 'Fredoka, Arial', fontSize: touch ? 22 : 26, color: '#fff7fb',
       stroke: '#5b2b16', strokeThickness: 6,
-    }).setOrigin(0.5);
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(20);
     this.hint = this.add.text(WIDTH / 2, 52, this.level.hint, {
       fontFamily: 'Fredoka, Arial', fontSize: 16, color: '#5b2b16',
-    }).setOrigin(0.5);
-    this.hud.add([this.scoreLabel, this.scoreText, this.levelText, this.hint]);
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(20);
     this.time.delayedCall(4000, () => this.tweens.add({ targets: this.hint, alpha: 0, duration: 500 }));
 
-    if (!isTouchPlay()) {
+    if (!touch) {
       this.keysHint = this.add.text(WIDTH / 2, HEIGHT - 18, '← → mover · ESPACIO saltar · ESC pausa', {
         fontFamily: 'Fredoka, Arial', fontSize: 14, color: '#fff7fb',
         backgroundColor: 'rgba(22, 12, 36, 0.55)',
@@ -213,8 +235,9 @@ export class GameScene extends Phaser.Scene {
       padding: { x: 7, y: 3 },
     }).setOrigin(1, 0).setScrollFactor(0).setDepth(21).setInteractive({ useHandCursor: true });
     this.pauseBtn.on('pointerdown', () => this.togglePause());
+    if (touch) this.pauseBtn.setVisible(false);
 
-    if (!isTouchPlay()) {
+    if (!touch) {
       this.muteBtn = this.add.text(WIDTH - 68, 58, isMusicMuted() ? '🔇' : '🔊', {
         fontFamily: 'Arial', fontSize: 18,
       }).setScrollFactor(0).setDepth(21).setInteractive({ useHandCursor: true });
@@ -222,6 +245,32 @@ export class GameScene extends Phaser.Scene {
         const muted = toggleMusicMute();
         this.muteBtn.setText(muted ? '🔇' : '🔊');
       });
+    }
+
+    this.layoutHud();
+  }
+
+  layoutHud() {
+    if (!this.heartIcons?.length) return;
+    const touch = isTouchPlay();
+    const { top, left, right } = getHudInsets();
+    const heartsY = top + 10;
+    const scoreX = WIDTH - right;
+
+    this.heartIcons.forEach((icon, i) => {
+      icon.setPosition(left + i * (touch ? 34 : 32), heartsY);
+    });
+
+    if (this.scoreLabel) this.scoreLabel.setPosition(scoreX, top + 2);
+    if (this.scoreText) this.scoreText.setPosition(scoreX, top + (touch ? 22 : 18));
+    if (this.levelText) this.levelText.setY(top + (touch ? 8 : 10));
+
+    if (this.hudBg) {
+      this.hudBg.clear();
+      if (touch) {
+        this.hudBg.fillStyle(0x160c24, 0.78);
+        this.hudBg.fillRoundedRect(6, top - 8, WIDTH - 12, 56, 10);
+      }
     }
   }
 
@@ -300,6 +349,7 @@ export class GameScene extends Phaser.Scene {
     this.time.delayedCall(0, () => {
       this.scale.refresh();
       this.applyCameraInset();
+      this.layoutHud();
     });
   }
 
@@ -314,7 +364,7 @@ export class GameScene extends Phaser.Scene {
     setTouchPlayMode(false);
     const cam = this.cameras.main;
     if (cam) {
-      cam.setViewport(0, 0, this.scale.width, this.scale.height);
+      cam.setViewport(0, 0, WIDTH, HEIGHT);
       cam.setFollowOffset(0, 0);
     }
     this.scale.refresh();
@@ -323,10 +373,9 @@ export class GameScene extends Phaser.Scene {
   applyCameraInset() {
     const cam = this.cameras.main;
     this.onCameraResize = () => {
-      const w = this.scale.width;
-      const h = this.scale.height;
-      cam.setViewport(0, 0, w, h);
+      cam.setViewport(0, 0, WIDTH, HEIGHT);
       cam.setFollowOffset(0, 0);
+      this.layoutHud();
     };
     this.onCameraResize();
     this.scale.on('resize', this.onCameraResize);
