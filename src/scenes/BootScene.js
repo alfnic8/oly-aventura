@@ -11,13 +11,17 @@ export class BootScene extends Phaser.Scene {
   preload() {
     this.load.image('oly-portada', 'assets/oly-portada.png');
     this.load.image('oly-face-photo-src', 'assets/oly-face-photo.png');
+    this.load.spritesheet('oly-anim', 'assets/oly-anim.png', {
+      frameWidth: 96,
+      frameHeight: 128,
+    });
     this.load.audio('intro', 'assets/sfx/intro.mp3');
     ['jump', 'star', 'crystal', 'stomp', 'hurt', 'win', 'start', 'click'].forEach((name) => {
       this.load.audio(name, `assets/sfx/${name}.wav`);
     });
 
     const { width, height } = this.scale;
-    const bar = this.add.rectangle(width / 2, height / 2, 280, 16, 0x4b3568);
+    this.add.rectangle(width / 2, height / 2, 280, 16, 0x4b3568);
     const fill = this.add.rectangle(width / 2 - 136, height / 2, 8, 10, 0xffd76a).setOrigin(0, 0.5);
     this.add.text(width / 2, height / 2 - 40, 'Cargando el reino de Oly…', {
       fontFamily: 'Fredoka, Arial',
@@ -32,14 +36,14 @@ export class BootScene extends Phaser.Scene {
 
   create() {
     createTextures(this);
-    const ok = buildFaceTexture(this, 'oly-face-photo-src', 'oly-face', loadFaceConfig());
-    if (!ok && this.textures.exists('oly-face-fallback')) {
-      // Si falla la foto, al menos hay un placeholder
-      console.warn('No se pudo generar la cara desde la foto');
-    }
+    buildFaceTexture(this, 'oly-face-photo-src', 'oly-face', loadFaceConfig());
     if (this.textures.exists('oly-portada')) {
       this.textures.get('oly-portada').setFilter(Phaser.Textures.FilterMode.NEAREST);
     }
+    if (this.textures.exists('oly-anim')) {
+      this.textures.get('oly-anim').setFilter(Phaser.Textures.FilterMode.NEAREST);
+    }
+
     if (!this.anims.exists('bat-fly')) {
       this.anims.create({
         key: 'bat-fly',
@@ -48,6 +52,30 @@ export class BootScene extends Phaser.Scene {
         repeat: -1,
       });
     }
+
+    if (!this.anims.exists('oly-idle')) {
+      this.anims.create({ key: 'oly-idle', frames: [{ key: 'oly-anim', frame: 0 }], frameRate: 1, repeat: -1 });
+      this.anims.create({ key: 'oly-jump', frames: [{ key: 'oly-anim', frame: 1 }], frameRate: 1, repeat: -1 });
+      this.anims.create({
+        key: 'oly-walk-l',
+        frames: this.anims.generateFrameNumbers('oly-anim', { start: 2, end: 5 }),
+        frameRate: 8,
+        repeat: -1,
+      });
+      this.anims.create({
+        key: 'oly-walk-r',
+        frames: this.anims.generateFrameNumbers('oly-anim', { start: 2, end: 5 }),
+        frameRate: 8,
+        repeat: -1,
+      });
+      this.anims.create({
+        key: 'oly-walk',
+        frames: this.anims.generateFrameNumbers('oly-anim', { start: 2, end: 9 }),
+        frameRate: 10,
+        repeat: -1,
+      });
+    }
+
     if (new URLSearchParams(window.location.search).get('faceTune') === '1') {
       this.scene.start('faceTune', { returnTo: 'menu' });
     } else {

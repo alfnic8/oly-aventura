@@ -7,6 +7,7 @@ import { CreditsScene } from './scenes/CreditsScene.js';
 import { MenuScene } from './scenes/MenuScene.js';
 import { GameScene } from './scenes/GameScene.js';
 import { FaceTuneScene } from './scenes/FaceTuneScene.js';
+import { LetterRevealScene } from './scenes/LetterRevealScene.js';
 
 const config = {
   type: Phaser.AUTO,
@@ -32,7 +33,7 @@ const config = {
     activePointers: 3,
   },
   audio: { disableWebAudio: isIOS() },
-  scene: [BootScene, CreditsScene, MenuScene, GameScene, FaceTuneScene],
+  scene: [BootScene, CreditsScene, MenuScene, GameScene, FaceTuneScene, LetterRevealScene],
 };
 
 const game = new Phaser.Game(config);

@@ -1,7 +1,26 @@
 import Phaser from 'phaser';
 import { WIDTH, HEIGHT } from '../config.js';
+import { LEVELS } from '../levels.js';
 import { enterLandscapePlay } from '../mobile.js';
 import { unlockAudio, startMusic, bindAutoMusic } from '../audio.js';
+import { OLY_WORD } from '../olyLetters.js';
+
+const SECRET_HOLD_MS = 900;
+
+/** Shared AbortControllers so DOM listeners don't stack when MenuScene restarts. */
+const menuDomSignals = {
+  jugar: null,
+  close: null,
+  secret: null,
+  keys: null,
+  audio: null,
+};
+
+function resetSignal(key) {
+  if (menuDomSignals[key]) menuDomSignals[key].abort();
+  menuDomSignals[key] = new AbortController();
+  return menuDomSignals[key].signal;
+}
 
 export class MenuScene extends Phaser.Scene {
   constructor() {
@@ -14,23 +33,143 @@ export class MenuScene extends Phaser.Scene {
 
     this.portada = document.getElementById('portada');
     this.btn = document.getElementById('btn-jugar');
+    this.levelPick = document.getElementById('level-pick');
+    this.levelPickList = document.getElementById('level-pick-list');
+    this.letterPreviewList = document.getElementById('letter-preview-list');
+    this.levelPickClose = document.getElementById('level-pick-close');
+    this.secretBtn = document.getElementById('btn-secret-levels');
     this.portada.classList.add('open');
     this.started = false;
-    this.onJugar = () => this.startGame();
-    this.btn.addEventListener('click', this.onJugar);
-    this.btn.addEventListener('touchstart', (ev) => {
+    this.secretTimer = null;
+
+    this.unbindMenuDom();
+
+    this.onJugar = () => this.startGame(0);
+    this.onJugarTouch = (ev) => {
       ev.preventDefault();
-      this.startGame();
-    }, { passive: false });
+      this.startGame(0);
+    };
+    const jugarSig = resetSignal('jugar');
+    this.btn.addEventListener('click', this.onJugar, { signal: jugarSig });
+    this.btn.addEventListener('touchstart', this.onJugarTouch, { passive: false, signal: jugarSig });
+
+    this.buildLevelPick();
+    this.buildLetterPreview();
+    this.bindSecretLevelPick();
+    this.onLevelKey = (ev) => {
+      if (this.started || !this.portada?.classList.contains('open')) return;
+      const n = Number(ev.key);
+      if (n >= 1 && n <= LEVELS.length) {
+        ev.preventDefault();
+        this.startGame(n - 1);
+      } else if (ev.key === 'l' || ev.key === 'L') {
+        this.openLevelPick();
+      }
+    };
+    window.addEventListener('keydown', this.onLevelKey, { signal: resetSignal('keys') });
+
     this.events.once('shutdown', () => this.hidePortada());
 
     bindAutoMusic(this);
     this.onAudioTap = (ev) => {
-      if (ev.target?.closest?.('#btn-jugar, [data-mute-btn]')) return;
+      if (ev.target?.closest?.('#btn-jugar, [data-mute-btn], #btn-secret-levels, #level-pick')) return;
       startMusic(this, { menu: true });
     };
-    this.portada.addEventListener('touchstart', this.onAudioTap, { passive: true });
-    this.portada.addEventListener('pointerdown', this.onAudioTap);
+    const audioSig = resetSignal('audio');
+    this.portada.addEventListener('touchstart', this.onAudioTap, { passive: true, signal: audioSig });
+    this.portada.addEventListener('pointerdown', this.onAudioTap, { signal: audioSig });
+  }
+
+  unbindMenuDom() {
+    Object.keys(menuDomSignals).forEach((key) => {
+      if (menuDomSignals[key]) {
+        menuDomSignals[key].abort();
+        menuDomSignals[key] = null;
+      }
+    });
+  }
+
+  buildLevelPick() {
+    if (!this.levelPickList) return;
+    this.levelPickList.innerHTML = '';
+    LEVELS.forEach((level, i) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = `${i + 1}. ${level.title}`;
+      btn.addEventListener('click', () => this.startGame(i));
+      this.levelPickList.appendChild(btn);
+    });
+    this.onLevelPickClose = () => this.closeLevelPick();
+    this.levelPickClose?.addEventListener('click', this.onLevelPickClose, { signal: resetSignal('close') });
+  }
+
+  buildLetterPreview() {
+    if (!this.letterPreviewList) return;
+    this.letterPreviewList.querySelectorAll('button').forEach((btn) => btn.remove());
+    OLY_WORD.forEach((ch, i) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = `Ver letra ${ch}`;
+      btn.addEventListener('click', () => this.previewLetter(i));
+      this.letterPreviewList.appendChild(btn);
+    });
+    const allBtn = document.createElement('button');
+    allBtn.type = 'button';
+    allBtn.textContent = 'Ver OLY completa';
+    allBtn.addEventListener('click', () => this.previewLetter(2, [true, true, true]));
+    this.letterPreviewList.appendChild(allBtn);
+  }
+
+  previewLetter(index, unlockedOverride = null) {
+    if (this.started) return;
+    this.started = true;
+    const unlocked = unlockedOverride ?? OLY_WORD.map((_, i) => i <= index);
+    this.closeLevelPick();
+    this.hidePortada();
+    this.scene.start('letterReveal', {
+      revealIndex: index,
+      unlocked,
+      preview: true,
+    });
+  }
+
+  bindSecretLevelPick() {
+    if (!this.secretBtn) return;
+    const clear = () => {
+      if (this.secretTimer) {
+        clearTimeout(this.secretTimer);
+        this.secretTimer = null;
+      }
+    };
+    const arm = (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      clear();
+      this.secretTimer = setTimeout(() => {
+        this.secretTimer = null;
+        this.openLevelPick();
+      }, SECRET_HOLD_MS);
+    };
+    this.onSecretDown = arm;
+    this.onSecretUp = clear;
+    this.onSecretLeave = clear;
+    const secretSig = resetSignal('secret');
+    this.secretBtn.addEventListener('pointerdown', this.onSecretDown, { signal: secretSig });
+    this.secretBtn.addEventListener('pointerup', this.onSecretUp, { signal: secretSig });
+    this.secretBtn.addEventListener('pointerleave', this.onSecretLeave, { signal: secretSig });
+    this.secretBtn.addEventListener('pointercancel', this.onSecretUp, { signal: secretSig });
+  }
+
+  openLevelPick() {
+    if (this.started || !this.levelPick) return;
+    this.levelPick.classList.add('open');
+    this.levelPick.setAttribute('aria-hidden', 'false');
+  }
+
+  closeLevelPick() {
+    if (!this.levelPick) return;
+    this.levelPick.classList.remove('open');
+    this.levelPick.setAttribute('aria-hidden', 'true');
   }
 
   drawCoverPhoto() {
@@ -84,23 +223,25 @@ export class MenuScene extends Phaser.Scene {
   }
 
   hidePortada() {
-    if (this.btn && this.onJugar) this.btn.removeEventListener('click', this.onJugar);
-    if (this.portada && this.onAudioTap) {
-      this.portada.removeEventListener('touchstart', this.onAudioTap);
-      this.portada.removeEventListener('pointerdown', this.onAudioTap);
+    if (this.secretTimer) {
+      clearTimeout(this.secretTimer);
+      this.secretTimer = null;
     }
+    this.unbindMenuDom();
+    this.closeLevelPick();
     if (this.portada) this.portada.classList.remove('open');
   }
 
-  startGame() {
+  startGame(levelIndex = 0) {
     if (this.started) return;
     this.started = true;
 
+    const level = Math.max(0, Math.min(LEVELS.length - 1, Number(levelIndex) || 0));
     unlockAudio(this);
     startMusic(this, { menu: false });
     this.hidePortada();
     this.sound.play('click', { volume: 0.35 });
-    this.scene.start('game', { level: 0 });
+    this.scene.start('game', { level, score: 0, hearts: 3 });
 
     enterLandscapePlay().then(() => {
       startMusic(this, { menu: false });

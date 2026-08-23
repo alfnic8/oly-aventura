@@ -8,9 +8,10 @@ import { loadFaceConfig } from '../faceConfig.js';
 import { isTouchPlay, setTouchPlayMode } from '../mobile.js';
 import { mountVirtualStick, mountJumpButton } from '../touchControls.js';
 import { openFaceTune } from '../faceTune.js';
+import { unlockLetterForLevel } from '../olyLetters.js';
 
 const MAX_HEARTS = 5;
-const STAND_ABOVE_PLATFORM = 100;
+const STAND_ABOVE_PLATFORM = 4;
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -67,10 +68,7 @@ export class GameScene extends Phaser.Scene {
     this.crown.body.setAllowGravity(false);
     this.tweens.add({ targets: this.crown, y: this.crown.y - 10, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
 
-    const faceCfg = loadFaceConfig();
-    buildFaceTexture(this, 'oly-face-photo-src', 'oly-face', faceCfg);
     this.oly = new Oly(this, this.level.spawn.x, this.level.spawn.y);
-    this.oly.applyFaceLayout(faceCfg);
     this.cameras.main.startFollow(this.oly.sprite, true, 0.12, 0.12);
     this.cameras.main.setDeadzone(80, 60);
     if (isTouchPlay()) this.cameras.main.setFollowOffset(0, 0);
@@ -133,12 +131,27 @@ export class GameScene extends Phaser.Scene {
   makeMover(m) {
     const plat = this.add.tileSprite(m.x + m.w / 2, m.y + 10, m.w, 20, 'pad');
     this.physics.add.existing(plat);
-    plat.body.setAllowGravity(false);
-    plat.body.setImmovable(true);
-    plat.body.setVelocityX(m.speed ?? 110);
-    plat.minX = m.minX + m.w / 2;
-    plat.maxX = m.maxX + m.w / 2;
+    const body = plat.body;
+    body.setAllowGravity(false);
+    body.setImmovable(true);
+    body.setVelocity(0, 0);
+    body.moves = false;
+    plat.axis = m.axis === 'y' ? 'y' : 'x';
     plat.patrolSpeed = m.speed ?? 110;
+    plat.dir = 1;
+    plat.carryDx = 0;
+    plat.carryDy = 0;
+    if (plat.axis === 'y') {
+      plat.minY = (m.minY ?? m.y) + 10;
+      plat.maxY = (m.maxY ?? m.y) + 10;
+      plat.minX = plat.x;
+      plat.maxX = plat.x;
+    } else {
+      plat.minX = m.minX + m.w / 2;
+      plat.maxX = m.maxX + m.w / 2;
+      plat.minY = plat.y;
+      plat.maxY = plat.y;
+    }
     this.movers.add(plat);
     return plat;
   }
@@ -459,6 +472,7 @@ export class GameScene extends Phaser.Scene {
     const platforms = [
       ...this.level.solids.map((s) => ({ x: s.x, y: s.y, w: s.w })),
       ...this.level.pads.map((p) => ({ x: p.x, y: p.y, w: p.w })),
+      ...this.level.movers.map((m) => ({ x: m.x, y: m.y, w: m.w })),
     ];
     let best = { ...this.level.spawn };
     let bestScore = Infinity;
@@ -528,9 +542,7 @@ export class GameScene extends Phaser.Scene {
 
     let heartGain = 1;
     if (!this.tookDamageThisLevel) heartGain += 1;
-    const heartsBefore = this.hearts;
     this.hearts = Math.min(MAX_HEARTS, this.hearts + heartGain);
-    const heartsGained = this.hearts - heartsBefore;
 
     const bonus = 500 + this.hearts * 100;
     this.addScore(bonus);
@@ -541,23 +553,20 @@ export class GameScene extends Phaser.Scene {
     } catch {
       /* ignore */
     }
-    const lifeMsg = heartsGained > 1
-      ? `¡+${heartsGained} vidas!`
-      : heartsGained === 1
-        ? '¡+1 vida!'
-        : '';
-    const msg = last
-      ? `¡Olympia es la princesa del castillo!${lifeMsg ? `\n${lifeMsg}` : ''}`
-      : `¡Muy bien, Oly! Nivel ${this.levelIndex + 1} listo${lifeMsg ? `\n${lifeMsg}` : ''}`;
-    this.showBanner(msg, () => {
-      this.hideBanner();
-      if (last) {
-        this.destroyTouch();
-        this.scene.start('menu');
-      } else {
-        this.scene.restart({ level: this.levelIndex + 1, score: this.score, hearts: this.hearts });
-      }
-    }, last ? 'Volver al menú' : 'Siguiente nivel');
+
+    const { index, unlocked } = unlockLetterForLevel(this.levelIndex);
+    this.unbindExitButton();
+    this.unbindMobileHud();
+    this.destroyTouch();
+
+    this.scene.start('letterReveal', {
+      revealIndex: index,
+      unlocked,
+      preview: false,
+      continueData: last
+        ? { toMenu: true }
+        : { level: this.levelIndex + 1, score: this.score, hearts: this.hearts },
+    });
   }
 
   showBanner(title, onOk, okLabel = 'Seguir', options = {}) {
@@ -658,13 +667,9 @@ export class GameScene extends Phaser.Scene {
   update(t, dt) {
     if (this.paused || this.portraitHold || this.finished || !this.oly) return;
     this.oly.update(t, dt);
+    this.updateMovers(dt);
+    this.carryOlyOnMovers();
 
-    this.movers.children.iterate((plat) => {
-      if (!plat) return;
-      const spd = plat.patrolSpeed || 110;
-      if (plat.x > plat.maxX) plat.body.setVelocityX(-spd);
-      if (plat.x < plat.minX) plat.body.setVelocityX(spd);
-    });
     this.enemies.children.iterate((bat) => {
       if (!bat || !bat.active) return;
       bat.x += bat.dir * bat.speed * (dt / 1000);
@@ -679,5 +684,74 @@ export class GameScene extends Phaser.Scene {
     if (this.oly.y > this.level.worldH + 20) {
       this.fallIntoVoid();
     }
+  }
+
+  updateMovers(dt) {
+    this.movers.children.iterate((plat) => {
+      if (!plat || !plat.body) return;
+      const spd = plat.patrolSpeed || 110;
+      if (!plat.dir) plat.dir = 1;
+
+      const prevX = plat.x;
+      const prevY = plat.y;
+
+      if (plat.axis === 'y') {
+        if (plat.y >= plat.maxY) plat.dir = -1;
+        if (plat.y <= plat.minY) plat.dir = 1;
+        plat.y += spd * plat.dir * (dt / 1000);
+        if (plat.y > plat.maxY) {
+          plat.y = plat.maxY;
+          plat.dir = -1;
+        } else if (plat.y < plat.minY) {
+          plat.y = plat.minY;
+          plat.dir = 1;
+        }
+      } else {
+        if (plat.x >= plat.maxX) plat.dir = -1;
+        if (plat.x <= plat.minX) plat.dir = 1;
+        plat.x += spd * plat.dir * (dt / 1000);
+        if (plat.x > plat.maxX) {
+          plat.x = plat.maxX;
+          plat.dir = -1;
+        } else if (plat.x < plat.minX) {
+          plat.x = plat.minX;
+          plat.dir = 1;
+        }
+      }
+
+      plat.carryDx = plat.x - prevX;
+      plat.carryDy = plat.y - prevY;
+
+      if (plat.body.updateFromGameObject) plat.body.updateFromGameObject();
+      else {
+        plat.body.position.x = plat.x - plat.body.halfWidth;
+        plat.body.position.y = plat.y - plat.body.halfHeight;
+      }
+    });
+  }
+
+  isOlyOnMover(plat) {
+    const body = this.oly?.body;
+    if (!body || !plat?.body) return false;
+    if (!(body.blocked.down || body.touching.down)) return false;
+    if (body.velocity.y < -40) return false;
+    const feet = body.bottom;
+    const top = plat.body.top;
+    const slack = plat.axis === 'y' ? 14 : 10;
+    if (feet > top + slack || feet < top - 8) return false;
+    if (body.right <= plat.body.left + 4 || body.left >= plat.body.right - 4) return false;
+    return true;
+  }
+
+  carryOlyOnMovers() {
+    if (!this.oly) return;
+    this.movers.children.iterate((plat) => {
+      if (!plat || (!plat.carryDx && !plat.carryDy) || !this.isOlyOnMover(plat)) return;
+      this.oly.sprite.x += plat.carryDx;
+      this.oly.sprite.y += plat.carryDy;
+      if (this.oly.shadow) {
+        this.oly.shadow.setPosition(this.oly.sprite.x, this.oly.sprite.y + 2);
+      }
+    });
   }
 }

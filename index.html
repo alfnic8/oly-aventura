@@ -162,9 +162,104 @@
         text-shadow: 0 0 10px #ffea00;
         letter-spacing: 0.12em;
         z-index: 4;
+        pointer-events: auto;
+        cursor: default;
+        user-select: none;
+        -webkit-user-select: none;
+        touch-action: manipulation;
       }
       .portada-player-label span {
         animation: blink 1.4s step-end infinite;
+        pointer-events: none;
+      }
+
+      #level-pick {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 55;
+        align-items: center;
+        justify-content: center;
+        background: rgba(10, 0, 20, 0.82);
+        padding: 20px;
+        box-sizing: border-box;
+      }
+      #level-pick.open { display: flex; }
+      #level-pick .level-pick-card {
+        width: min(92vw, 360px);
+        padding: 18px 16px 16px;
+        border: 3px solid #00f5ff;
+        border-radius: 10px;
+        background: rgba(10, 0, 30, 0.96);
+        box-shadow: 0 0 24px rgba(0, 245, 255, 0.25);
+        text-align: center;
+      }
+      #level-pick h2 {
+        margin: 0 0 14px;
+        font-family: 'Press Start 2P', monospace;
+        font-size: clamp(9px, 2.2vh, 12px);
+        color: #ffea00;
+        line-height: 1.5;
+      }
+      #level-pick-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      #level-pick-list button {
+        appearance: none;
+        border: 3px solid #ff006e;
+        border-radius: 8px;
+        padding: 12px 10px;
+        font-family: 'Press Start 2P', monospace;
+        font-size: clamp(7px, 1.6vh, 9px);
+        line-height: 1.45;
+        color: #fff7fb;
+        background: rgba(255, 0, 110, 0.12);
+        cursor: pointer;
+        box-shadow: 0 0 10px rgba(255, 0, 110, 0.25);
+      }
+      #level-pick-list button:active {
+        background: rgba(255, 0, 110, 0.28);
+      }
+      #level-pick-close {
+        margin-top: 12px;
+        appearance: none;
+        border: 2px solid #00f5ff;
+        border-radius: 8px;
+        padding: 8px 12px;
+        font-family: 'Press Start 2P', monospace;
+        font-size: 8px;
+        color: #00f5ff;
+        background: transparent;
+        cursor: pointer;
+      }
+      #letter-preview-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 14px;
+        padding-top: 12px;
+        border-top: 2px solid rgba(0, 245, 255, 0.25);
+      }
+      #letter-preview-list .letter-preview-label {
+        margin: 0 0 4px;
+        font-family: 'Press Start 2P', monospace;
+        font-size: 7px;
+        color: #ffea00;
+        line-height: 1.5;
+      }
+      #letter-preview-list button {
+        appearance: none;
+        border: 3px solid #ffd76a;
+        border-radius: 8px;
+        padding: 10px 10px;
+        font-family: 'Press Start 2P', monospace;
+        font-size: clamp(7px, 1.5vh, 9px);
+        line-height: 1.45;
+        color: #0a0014;
+        background: linear-gradient(180deg, #ffea00 0%, #ff9500 100%);
+        cursor: pointer;
       }
       .portada-photo-frame::after {
         display: none;
@@ -294,6 +389,30 @@
       }
       .portada-copy h2 {
         display: none;
+      }
+      @media (hover: none) and (pointer: coarse), (max-width: 900px) {
+        .portada-copy {
+          line-height: 1.15;
+        }
+        .arcade-credit {
+          margin: 0 0 8px;
+          line-height: 1.2;
+        }
+        .portada-copy .presentan {
+          margin: 0 0 8px;
+          line-height: 1.25;
+        }
+        .portada-copy h1 {
+          margin: 0 0 10px;
+          line-height: 1.15;
+        }
+        .portada-copy .sub {
+          margin: 0 0 16px;
+          line-height: 1.3;
+        }
+        .portada-actions {
+          gap: 10px;
+        }
       }
       .portada-actions {
         display: flex;
@@ -697,8 +816,18 @@
           </div>
           <div class="portada-photo-scan"></div>
           <div class="portada-photo-glow"></div>
-          <div class="portada-player-label"><span>PLAYER 1</span></div>
+          <div class="portada-player-label" id="btn-secret-levels" role="button" aria-label=""><span>PLAYER 1</span></div>
         </div>
+      </div>
+    </div>
+    <div id="level-pick" aria-hidden="true">
+      <div class="level-pick-card">
+        <h2>ELEGIR NIVEL</h2>
+        <div id="level-pick-list"></div>
+        <div id="letter-preview-list">
+          <p class="letter-preview-label">VER LETRAS O L Y</p>
+        </div>
+        <button id="level-pick-close" type="button">CERRAR</button>
       </div>
     </div>
     <audio id="oly-bgm" loop playsinline webkit-playsinline preload="auto" src="assets/sfx/intro.mp3"></audio>
