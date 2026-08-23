@@ -468,6 +468,67 @@
       }
       #btn-exit-game.open { display: block; }
 
+      #mobile-hud {
+        display: none;
+        position: fixed;
+        top: calc(12px + env(safe-area-inset-top, 0px));
+        left: 0;
+        right: 0;
+        z-index: 34;
+        pointer-events: none;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 calc(12px + env(safe-area-inset-right, 0px)) 0 calc(12px + env(safe-area-inset-left, 0px));
+        box-sizing: border-box;
+        gap: 12px;
+      }
+      #mobile-hud.open { display: flex; }
+      #mobile-hud-hearts {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        margin-left: 92px;
+        min-height: 36px;
+        padding: 2px 8px;
+        border-radius: 8px;
+        background: rgba(10, 0, 30, 0.88);
+        border: 3px solid #ff4d6d;
+      }
+      #mobile-hud-hearts .mh-heart {
+        font-size: 20px;
+        line-height: 1;
+        color: #ff4d6d;
+        text-shadow: 0 0 6px rgba(255, 77, 109, 0.55);
+      }
+      #mobile-hud-hearts .mh-heart.empty {
+        color: rgba(255, 255, 255, 0.35);
+        text-shadow: none;
+      }
+      #mobile-hud-score {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        justify-content: center;
+        min-height: 36px;
+        padding: 4px 10px;
+        border-radius: 8px;
+        background: rgba(10, 0, 30, 0.88);
+        border: 3px solid #ffd76a;
+        color: #ffd76a;
+        font-family: 'Press Start 2P', monospace;
+        line-height: 1.35;
+        text-align: right;
+      }
+      #mobile-hud-score .mh-label {
+        font-size: 7px;
+        color: #fff7fb;
+        opacity: 0.9;
+      }
+      #mobile-hud-score .mh-value {
+        font-size: 12px;
+        color: #ffd76a;
+      }
+
       /* —— Gira celular —— */
       #gira {
         display: none;
@@ -652,6 +713,13 @@
       </div>
     </div>
     <button id="btn-exit-game" type="button" aria-label="Salir al menú">SALIR</button>
+    <div id="mobile-hud" aria-live="polite">
+      <div id="mobile-hud-hearts"></div>
+      <div id="mobile-hud-score">
+        <span class="mh-label">PUNTOS</span>
+        <span class="mh-value" id="mobile-hud-score-value">0</span>
+      </div>
+    </div>
     <div id="gira">
       <span>↻</span>
       <p>Gira el celular</p>

@@ -5,7 +5,7 @@ import { Oly } from '../player/Oly.js';
 import { startMusic, bindAutoMusic, toggleMusicMute, isMusicMuted } from '../audio.js';
 import { buildFaceTexture } from '../faceFromPhoto.js';
 import { loadFaceConfig } from '../faceConfig.js';
-import { isTouchPlay, setTouchPlayMode, getHudInsets } from '../mobile.js';
+import { isTouchPlay, setTouchPlayMode } from '../mobile.js';
 import { mountVirtualStick, mountJumpButton } from '../touchControls.js';
 import { openFaceTune } from '../faceTune.js';
 
@@ -102,6 +102,7 @@ export class GameScene extends Phaser.Scene {
     this.events.once('shutdown', () => {
       this.hideBanner();
       this.unbindExitButton();
+      this.unbindMobileHud();
       this.destroyTouch();
       window.removeEventListener('orientationchange', this.onOrient);
       window.removeEventListener('resize', this.onOrient);
@@ -174,49 +175,31 @@ export class GameScene extends Phaser.Scene {
 
   buildHud() {
     const touch = isTouchPlay();
-    this.hudBg = this.add.graphics().setScrollFactor(0).setDepth(19);
     this.heartIcons = [];
     for (let i = 0; i < MAX_HEARTS; i += 1) {
-      const h = this.add.image(0, 0, 'heart').setScrollFactor(0).setDepth(20);
-      if (touch) h.setScale(1.15);
+      const h = this.add.image(24 + i * 32, 24, 'heart').setScrollFactor(0).setDepth(20);
+      if (touch) h.setVisible(false);
       this.heartIcons.push(h);
     }
-    this.refreshHearts();
 
-    const scoreStyle = touch
-      ? {
-        fontFamily: 'Fredoka, Arial',
-        fontSize: 15,
-        color: '#fff7fb',
-        backgroundColor: 'rgba(22, 12, 36, 0.72)',
-        padding: { x: 6, y: 2 },
-      }
-      : { fontFamily: 'Fredoka, Arial', fontSize: 15, color: '#5b2b16' };
-    const scoreNumStyle = touch
-      ? {
-        fontFamily: 'Fredoka, Arial',
-        fontSize: 26,
-        color: '#ffd76a',
-        stroke: '#160c24',
-        strokeThickness: 5,
-        backgroundColor: 'rgba(22, 12, 36, 0.72)',
-        padding: { x: 8, y: 3 },
-      }
-      : {
-        fontFamily: 'Fredoka, Arial',
-        fontSize: 26,
-        color: '#5b2b16',
-        stroke: '#ffd76a',
-        strokeThickness: 5,
-      };
+    this.scoreLabel = this.add.text(WIDTH - 20, 12, 'Puntos', {
+      fontFamily: 'Fredoka, Arial', fontSize: 15, color: '#5b2b16',
+    }).setOrigin(1, 0).setScrollFactor(0).setDepth(20);
+    this.scoreText = this.add.text(WIDTH - 20, 28, String(this.score), {
+      fontFamily: 'Fredoka, Arial', fontSize: 26, color: '#5b2b16',
+      stroke: '#ffd76a', strokeThickness: 5,
+    }).setOrigin(1, 0).setScrollFactor(0).setDepth(20);
 
-    this.scoreLabel = this.add.text(0, 0, 'Puntos', scoreStyle).setOrigin(1, 0).setScrollFactor(0).setDepth(20);
-    this.scoreText = this.add.text(0, 0, String(this.score), scoreNumStyle).setOrigin(1, 0).setScrollFactor(0).setDepth(20);
-    this.levelText = this.add.text(WIDTH / 2, 22, this.level.title, {
-      fontFamily: 'Fredoka, Arial', fontSize: touch ? 22 : 26, color: '#fff7fb',
+    if (touch) {
+      this.scoreLabel.setVisible(false);
+      this.scoreText.setVisible(false);
+    }
+
+    this.levelText = this.add.text(WIDTH / 2, touch ? 52 : 22, this.level.title, {
+      fontFamily: 'Fredoka, Arial', fontSize: touch ? 20 : 26, color: '#fff7fb',
       stroke: '#5b2b16', strokeThickness: 6,
     }).setOrigin(0.5).setScrollFactor(0).setDepth(20);
-    this.hint = this.add.text(WIDTH / 2, 52, this.level.hint, {
+    this.hint = this.add.text(WIDTH / 2, touch ? 78 : 52, this.level.hint, {
       fontFamily: 'Fredoka, Arial', fontSize: 16, color: '#5b2b16',
     }).setOrigin(0.5).setScrollFactor(0).setDepth(20);
     this.time.delayedCall(4000, () => this.tweens.add({ targets: this.hint, alpha: 0, duration: 500 }));
@@ -247,38 +230,45 @@ export class GameScene extends Phaser.Scene {
       });
     }
 
-    this.layoutHud();
+    this.refreshHearts();
+    this.bindMobileHud();
   }
 
-  layoutHud() {
-    if (!this.heartIcons?.length) return;
-    const touch = isTouchPlay();
-    const { top, left, right } = getHudInsets();
-    const heartsY = top + 10;
-    const scoreX = WIDTH - right;
+  bindMobileHud() {
+    this.mobileHud = document.getElementById('mobile-hud');
+    this.mobileHudHearts = document.getElementById('mobile-hud-hearts');
+    this.mobileHudScore = document.getElementById('mobile-hud-score-value');
+    if (!this.mobileHud || !isTouchPlay()) return;
+    this.mobileHud.classList.add('open');
+    this.syncMobileHud();
+  }
 
-    this.heartIcons.forEach((icon, i) => {
-      icon.setPosition(left + i * (touch ? 34 : 32), heartsY);
-    });
+  unbindMobileHud() {
+    if (this.mobileHud) this.mobileHud.classList.remove('open');
+    this.mobileHud = null;
+    this.mobileHudHearts = null;
+    this.mobileHudScore = null;
+  }
 
-    if (this.scoreLabel) this.scoreLabel.setPosition(scoreX, top + 2);
-    if (this.scoreText) this.scoreText.setPosition(scoreX, top + (touch ? 22 : 18));
-    if (this.levelText) this.levelText.setY(top + (touch ? 8 : 10));
-
-    if (this.hudBg) {
-      this.hudBg.clear();
-      if (touch) {
-        this.hudBg.fillStyle(0x160c24, 0.78);
-        this.hudBg.fillRoundedRect(6, top - 8, WIDTH - 12, 56, 10);
+  syncMobileHud() {
+    if (!this.mobileHud || !isTouchPlay()) return;
+    if (this.mobileHudHearts) {
+      const count = Math.max(3, this.hearts);
+      let html = '';
+      for (let i = 0; i < count; i += 1) {
+        html += `<span class="mh-heart${i < this.hearts ? '' : ' empty'}" aria-hidden="true">♥</span>`;
       }
+      this.mobileHudHearts.innerHTML = html;
     }
+    if (this.mobileHudScore) this.mobileHudScore.textContent = String(this.score);
   }
 
   refreshHearts() {
     this.heartIcons.forEach((icon, i) => {
       icon.setTexture(i < this.hearts ? 'heart' : 'heart-empty');
-      icon.setVisible(i < Math.max(3, this.hearts));
+      icon.setVisible(!isTouchPlay() && i < Math.max(3, this.hearts));
     });
+    this.syncMobileHud();
   }
 
   buildTouch() {
@@ -327,6 +317,7 @@ export class GameScene extends Phaser.Scene {
     this.paused = false;
     this.hideBanner();
     this.unbindExitButton();
+    this.unbindMobileHud();
     this.destroyTouch();
     this.scene.start('menu');
   }
@@ -349,7 +340,6 @@ export class GameScene extends Phaser.Scene {
     this.time.delayedCall(0, () => {
       this.scale.refresh();
       this.applyCameraInset();
-      this.layoutHud();
     });
   }
 
@@ -375,7 +365,6 @@ export class GameScene extends Phaser.Scene {
     this.onCameraResize = () => {
       cam.setViewport(0, 0, WIDTH, HEIGHT);
       cam.setFollowOffset(0, 0);
-      this.layoutHud();
     };
     this.onCameraResize();
     this.scale.on('resize', this.onCameraResize);
@@ -384,6 +373,7 @@ export class GameScene extends Phaser.Scene {
   addScore(points, x, y) {
     this.score += points;
     if (this.scoreText) this.scoreText.setText(String(this.score));
+    this.syncMobileHud();
     if (x == null) return;
     const pop = this.add.text(x, y, `+${points}`, {
       fontFamily: 'Fredoka, Arial',
