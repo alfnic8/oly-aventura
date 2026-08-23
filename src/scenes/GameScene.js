@@ -5,7 +5,7 @@ import { Oly } from '../player/Oly.js';
 import { startMusic, bindAutoMusic, toggleMusicMute, isMusicMuted } from '../audio.js';
 import { buildFaceTexture } from '../faceFromPhoto.js';
 import { loadFaceConfig } from '../faceConfig.js';
-import { isTouchPlay, TOUCH_BAR_PX } from '../mobile.js';
+import { isTouchPlay, setTouchPlayMode } from '../mobile.js';
 import { mountVirtualStick, mountJumpButton } from '../touchControls.js';
 import { openFaceTune } from '../faceTune.js';
 
@@ -70,7 +70,7 @@ export class GameScene extends Phaser.Scene {
     this.oly = new Oly(this, this.level.spawn.x, this.level.spawn.y);
     this.cameras.main.startFollow(this.oly.sprite, true, 0.12, 0.12);
     this.cameras.main.setDeadzone(80, 60);
-    if (isTouchPlay()) this.cameras.main.setFollowOffset(0, 55);
+    if (isTouchPlay()) this.cameras.main.setFollowOffset(0, 0);
     this.input.keyboard.addCapture('SPACE,UP,LEFT,RIGHT');
 
     this.physics.add.collider(this.oly.sprite, this.solids);
@@ -283,6 +283,7 @@ export class GameScene extends Phaser.Scene {
     this.touchBar = document.getElementById('touch');
     if (!this.touchBar) return;
     this.touchBar.classList.add('open');
+    setTouchPlayMode(true);
 
     this.unmountStick = mountVirtualStick(this.touchBar, (dir) => {
       if (this.oly) this.oly.setTouchDir(dir);
@@ -291,6 +292,11 @@ export class GameScene extends Phaser.Scene {
       document.getElementById('touch-jump'),
       () => { if (this.oly) this.oly.requestJump(); },
     );
+
+    this.time.delayedCall(0, () => {
+      this.scale.refresh();
+      this.applyCameraInset();
+    });
   }
 
   destroyTouch() {
@@ -301,11 +307,13 @@ export class GameScene extends Phaser.Scene {
     if (this.touchBar) this.touchBar.classList.remove('open');
     this.touchBar = null;
     if (this.oly) this.oly.setTouchDir(0);
+    setTouchPlayMode(false);
     const cam = this.cameras.main;
     if (cam) {
       cam.setViewport(0, 0, this.scale.width, this.scale.height);
       cam.setFollowOffset(0, 0);
     }
+    this.scale.refresh();
   }
 
   applyCameraInset() {
@@ -313,8 +321,8 @@ export class GameScene extends Phaser.Scene {
     this.onCameraResize = () => {
       const w = this.scale.width;
       const h = this.scale.height;
-      cam.setViewport(0, 0, w, Math.max(h - TOUCH_BAR_PX, h * 0.82));
-      if (isTouchPlay()) cam.setFollowOffset(0, 55);
+      cam.setViewport(0, 0, w, h);
+      cam.setFollowOffset(0, 0);
     };
     this.onCameraResize();
     this.scale.on('resize', this.onCameraResize);

@@ -29,6 +29,13 @@
         overscroll-behavior: none;
         -webkit-touch-callout: none;
       }
+      :root {
+        --touch-bar-h: 112px;
+      }
+      body.touch-play #game {
+        height: calc(100dvh - var(--touch-bar-h) - env(safe-area-inset-bottom, 0px));
+        max-height: calc(100dvh - var(--touch-bar-h) - env(safe-area-inset-bottom, 0px));
+      }
       #game {
         width: 100%;
         height: 100%;
@@ -503,13 +510,13 @@
         right: 0;
         bottom: 0;
         z-index: 30;
-        height: calc(100px + env(safe-area-inset-bottom, 0px));
+        height: calc(var(--touch-bar-h) + env(safe-area-inset-bottom, 0px));
         padding: 0 16px env(safe-area-inset-bottom, 0px);
         box-sizing: border-box;
-        align-items: center;
+        align-items: flex-end;
         justify-content: space-between;
         pointer-events: none;
-        background: linear-gradient(transparent, rgba(10, 0, 20, 0.75));
+        background: linear-gradient(transparent, rgba(10, 0, 20, 0.92));
       }
       #touch.open {
         display: flex;
@@ -530,8 +537,8 @@
       }
       [data-stick-base] {
         position: relative;
-        width: 120px;
-        height: 120px;
+        width: 92px;
+        height: 92px;
         border-radius: 50%;
         background:
           radial-gradient(circle at 35% 30%, #3a2060, #1a0033 70%);
@@ -554,8 +561,8 @@
         position: absolute;
         left: 50%;
         top: 50%;
-        width: 52px;
-        height: 52px;
+        width: 44px;
+        height: 44px;
         border-radius: 50%;
         transform: translate(-50%, -50%);
         background: radial-gradient(circle at 35% 28%, #ff4d9a, #cc0066 55%, #880044);
@@ -581,9 +588,9 @@
         appearance: none;
         border: 4px solid #ff006e;
         border-radius: 50%;
-        width: 76px;
-        height: 76px;
-        font: 700 28px Fredoka, sans-serif;
+        width: 64px;
+        height: 64px;
+        font: 700 24px Fredoka, sans-serif;
         color: #fff;
         background: radial-gradient(circle at 35% 28%, #ff4d9a, #cc0066);
         box-shadow:
