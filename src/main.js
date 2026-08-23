@@ -1,10 +1,12 @@
 import Phaser from 'phaser';
 import { WIDTH, HEIGHT } from './config.js';
-import { isIOS } from './audio.js';
+import { isIOS, bindMuteButtons } from './audio.js';
+import { registerPwaServiceWorker, setupPwaInstall } from './pwa.js';
 import { BootScene } from './scenes/BootScene.js';
 import { CreditsScene } from './scenes/CreditsScene.js';
 import { MenuScene } from './scenes/MenuScene.js';
 import { GameScene } from './scenes/GameScene.js';
+import { FaceTuneScene } from './scenes/FaceTuneScene.js';
 
 const config = {
   type: Phaser.AUTO,
@@ -30,11 +32,15 @@ const config = {
     activePointers: 3,
   },
   audio: { disableWebAudio: isIOS() },
-  scene: [BootScene, CreditsScene, MenuScene, GameScene],
+  scene: [BootScene, CreditsScene, MenuScene, GameScene, FaceTuneScene],
 };
 
 const game = new Phaser.Game(config);
 window.__olyGame = game;
+localStorage.removeItem('oly-music-muted');
+bindMuteButtons();
+registerPwaServiceWorker();
+setupPwaInstall();
 
 const refreshScale = () => game.scale.refresh();
 window.addEventListener('resize', refreshScale);

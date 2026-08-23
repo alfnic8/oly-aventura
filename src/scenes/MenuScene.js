@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { WIDTH, HEIGHT } from '../config.js';
 import { enterLandscapePlay } from '../mobile.js';
-import { unlockAudio, playBgm, bindAudioResume } from '../audio.js';
+import { unlockAudio, startMusic, bindAutoMusic } from '../audio.js';
 
 export class MenuScene extends Phaser.Scene {
   constructor() {
@@ -9,12 +9,8 @@ export class MenuScene extends Phaser.Scene {
   }
 
   create() {
-    this.add.rectangle(0, 0, WIDTH, HEIGHT, 0x1a1028).setOrigin(0);
-
-    const photo = this.add.image(WIDTH * 0.72, HEIGHT * 0.52, 'oly-portada');
-    photo.setScale(HEIGHT / photo.height * 1.08);
-
-    this.add.rectangle(0, 0, 560, HEIGHT, 0x140a22, 0.62).setOrigin(0);
+    this.drawArcadeBg();
+    this.drawCoverPhoto();
 
     this.portada = document.getElementById('portada');
     this.btn = document.getElementById('btn-jugar');
@@ -28,14 +24,63 @@ export class MenuScene extends Phaser.Scene {
     }, { passive: false });
     this.events.once('shutdown', () => this.hidePortada());
 
-    bindAudioResume(this);
+    bindAutoMusic(this);
     this.onAudioTap = (ev) => {
-      if (ev.target && ev.target.id === 'btn-jugar') return;
-      unlockAudio(this);
-      playBgm(this, { menu: true });
+      if (ev.target?.closest?.('#btn-jugar, [data-mute-btn]')) return;
+      startMusic(this, { menu: true });
     };
     this.portada.addEventListener('touchstart', this.onAudioTap, { passive: true });
     this.portada.addEventListener('pointerdown', this.onAudioTap);
+  }
+
+  drawCoverPhoto() {
+    const key = 'oly-portada';
+    if (this.textures.exists(key)) {
+      this.textures.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST);
+    }
+    const photo = this.add.image(WIDTH * 0.72, HEIGHT * 0.5, key);
+    const maxH = HEIGHT * 0.9;
+    const maxW = WIDTH * 0.36;
+    const scale = Math.min(maxH / photo.height, maxW / photo.width);
+    photo.setScale(scale);
+    photo.setAlpha(0.22);
+    photo.setTint(0xff88cc);
+
+    const frame = this.add.rectangle(WIDTH * 0.72, HEIGHT * 0.5, photo.displayWidth + 16, photo.displayHeight + 16);
+    frame.setStrokeStyle(4, 0xff006e, 0.5);
+    frame.setFillStyle(0x000000, 0);
+    frame.setDepth(-1);
+  }
+
+  drawArcadeBg() {
+    const g = this.add.graphics().setDepth(-5);
+    g.fillGradientStyle(0x0a0014, 0x0a0014, 0x1a0033, 0x0d0020, 1);
+    g.fillRect(0, 0, WIDTH, HEIGHT);
+
+    const grid = this.add.graphics().setDepth(-4).setAlpha(0.35);
+    grid.lineStyle(1, 0x00f5ff, 0.2);
+    for (let x = 0; x < WIDTH; x += 40) {
+      grid.lineBetween(x, HEIGHT * 0.55, x + (WIDTH - x) * 0.3, HEIGHT);
+    }
+    for (let y = HEIGHT * 0.55; y < HEIGHT; y += 24) {
+      grid.lineBetween(0, y, WIDTH, y);
+    }
+
+    for (let i = 0; i < 12; i += 1) {
+      const star = this.add.text(
+        Phaser.Math.Between(20, WIDTH - 20),
+        Phaser.Math.Between(20, HEIGHT - 80),
+        '★',
+        { fontFamily: 'Arial', fontSize: Phaser.Math.Between(10, 18), color: '#ffea00' },
+      ).setAlpha(Phaser.Math.FloatBetween(0.2, 0.7)).setDepth(-3);
+      this.tweens.add({
+        targets: star,
+        alpha: { from: star.alpha, to: star.alpha * 0.3 },
+        duration: Phaser.Math.Between(600, 1400),
+        yoyo: true,
+        repeat: -1,
+      });
+    }
   }
 
   hidePortada() {
@@ -52,11 +97,10 @@ export class MenuScene extends Phaser.Scene {
     this.started = true;
 
     unlockAudio(this);
-    playBgm(this, { menu: false });
+    startMusic(this, { menu: false });
 
     enterLandscapePlay().then(() => {
-      unlockAudio(this);
-      playBgm(this, { menu: false });
+      startMusic(this, { menu: false });
       this.hidePortada();
       this.sound.play('click', { volume: 0.35 });
       this.scene.start('game', { level: 0 });

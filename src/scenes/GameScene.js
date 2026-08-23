@@ -2,8 +2,14 @@ import Phaser from 'phaser';
 import { WIDTH, HEIGHT } from '../config.js';
 import { LEVELS } from '../levels.js';
 import { Oly } from '../player/Oly.js';
-import { playBgm, bindAudioResume } from '../audio.js';
+import { startMusic, bindAutoMusic, toggleMusicMute, isMusicMuted } from '../audio.js';
+import { buildFaceTexture } from '../faceFromPhoto.js';
+import { loadFaceConfig } from '../faceConfig.js';
+
+const MAX_HEARTS = 5;
 import { isTouchPlay, TOUCH_BAR_PX } from '../mobile.js';
+import { mountVirtualStick, mountJumpButton } from '../touchControls.js';
+import { openFaceTune } from '../faceTune.js';
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -14,6 +20,8 @@ export class GameScene extends Phaser.Scene {
     this.levelIndex = data.level ?? 0;
     this.score = data.score ?? 0;
     this.scoreStart = this.score;
+    this.hearts = data.hearts ?? 3;
+    this.tookDamageThisLevel = false;
   }
 
   create() {
@@ -29,7 +37,7 @@ export class GameScene extends Phaser.Scene {
 
   buildLevel() {
     this.level = LEVELS[this.levelIndex];
-    this.hearts = 3;
+    this.heartsAtLevelStart = this.hearts;
     this.paused = false;
     this.finished = false;
     this.spawn = { ...this.level.spawn };
@@ -73,10 +81,12 @@ export class GameScene extends Phaser.Scene {
     this.input.addPointer(3);
     this.buildHud();
     this.buildTouch();
-    bindAudioResume(this);
-    playBgm(this);
+    this.bindExitButton();
+    bindAutoMusic(this);
+    startMusic(this);
     this.input.keyboard.on('keydown-ESC', () => this.togglePause());
     this.input.keyboard.on('keydown-P', () => this.togglePause());
+    this.input.keyboard.on('keydown-F9', () => openFaceTune(this, 'game'));
     this.portraitHold = false;
     this.onOrient = () => this.syncPortraitHold();
     window.addEventListener('orientationchange', this.onOrient);
@@ -86,6 +96,7 @@ export class GameScene extends Phaser.Scene {
     this.scene.stop('credits');
     this.events.once('shutdown', () => {
       this.hideBanner();
+      this.unbindExitButton();
       this.destroyTouch();
       window.removeEventListener('orientationchange', this.onOrient);
       window.removeEventListener('resize', this.onOrient);
@@ -159,104 +170,135 @@ export class GameScene extends Phaser.Scene {
   buildHud() {
     this.hud = this.add.container(0, 0).setScrollFactor(0).setDepth(20);
     this.heartIcons = [];
-    for (let i = 0; i < 3; i += 1) {
-      const h = this.add.image(24 + i * 32, 24, 'heart');
+    const heartsX = isTouchPlay() ? 88 : 24;
+    for (let i = 0; i < MAX_HEARTS; i += 1) {
+      const h = this.add.image(heartsX + i * 32, 24, 'heart');
       this.heartIcons.push(h);
       this.hud.add(h);
     }
-    this.scoreLabel = this.add.text(WIDTH - 24, 14, 'Puntos', {
-      fontFamily: 'Fredoka, Arial', fontSize: 16, color: '#5b2b16',
+    this.refreshHearts();
+    this.scoreLabel = this.add.text(WIDTH - 20, 12, 'Puntos', {
+      fontFamily: 'Fredoka, Arial', fontSize: 15, color: '#5b2b16',
     }).setOrigin(1, 0);
-    this.scoreText = this.add.text(WIDTH - 24, 32, String(this.score), {
-      fontFamily: 'Fredoka, Arial', fontSize: 30, color: '#5b2b16',
-      stroke: '#ffd76a', strokeThickness: 6,
+    this.scoreText = this.add.text(WIDTH - 20, 28, String(this.score), {
+      fontFamily: 'Fredoka, Arial', fontSize: 26, color: '#5b2b16',
+      stroke: '#ffd76a', strokeThickness: 5,
     }).setOrigin(1, 0);
-    this.levelText = this.add.text(WIDTH / 2, 26, this.level.title, {
-      fontFamily: 'Fredoka, Arial', fontSize: 28, color: '#fff7fb',
+    this.levelText = this.add.text(WIDTH / 2, 22, this.level.title, {
+      fontFamily: 'Fredoka, Arial', fontSize: 26, color: '#fff7fb',
       stroke: '#5b2b16', strokeThickness: 6,
     }).setOrigin(0.5);
-    this.hint = this.add.text(WIDTH / 2, 58, this.level.hint, {
-      fontFamily: 'Fredoka, Arial', fontSize: 18, color: '#5b2b16',
+    this.hint = this.add.text(WIDTH / 2, 52, this.level.hint, {
+      fontFamily: 'Fredoka, Arial', fontSize: 16, color: '#5b2b16',
     }).setOrigin(0.5);
     this.hud.add([this.scoreLabel, this.scoreText, this.levelText, this.hint]);
     this.time.delayedCall(4000, () => this.tweens.add({ targets: this.hint, alpha: 0, duration: 500 }));
 
-    this.pauseBtn = this.add.text(WIDTH - 18, 72, 'II', {
-      fontFamily: 'Fredoka, Arial', fontSize: 18, color: '#5b2b16', backgroundColor: '#ffd76a',
-      padding: { x: 8, y: 4 },
+    if (!isTouchPlay()) {
+      this.keysHint = this.add.text(WIDTH / 2, HEIGHT - 18, '← → mover · ESPACIO saltar · ESC pausa', {
+        fontFamily: 'Fredoka, Arial', fontSize: 14, color: '#fff7fb',
+        backgroundColor: 'rgba(22, 12, 36, 0.55)',
+        padding: { x: 8, y: 3 },
+      }).setOrigin(0.5, 1).setScrollFactor(0).setDepth(21).setAlpha(0.85);
+      this.time.delayedCall(5000, () => this.tweens.add({ targets: this.keysHint, alpha: 0, duration: 600 }));
+    }
+
+    this.pauseBtn = this.add.text(WIDTH - 20, 58, 'II', {
+      fontFamily: 'Fredoka, Arial', fontSize: 16, color: '#5b2b16', backgroundColor: '#ffd76a',
+      padding: { x: 7, y: 3 },
     }).setOrigin(1, 0).setScrollFactor(0).setDepth(21).setInteractive({ useHandCursor: true });
     this.pauseBtn.on('pointerdown', () => this.togglePause());
+
+    if (!isTouchPlay()) {
+      this.muteBtn = this.add.text(WIDTH - 68, 58, isMusicMuted() ? '🔇' : '🔊', {
+        fontFamily: 'Arial', fontSize: 18,
+      }).setScrollFactor(0).setDepth(21).setInteractive({ useHandCursor: true });
+      this.muteBtn.on('pointerdown', () => {
+        const muted = toggleMusicMute();
+        this.muteBtn.setText(muted ? '🔇' : '🔊');
+      });
+    }
+  }
+
+  refreshHearts() {
+    this.heartIcons.forEach((icon, i) => {
+      icon.setTexture(i < this.hearts ? 'heart' : 'heart-empty');
+      icon.setVisible(i < Math.max(3, this.hearts));
+    });
   }
 
   buildTouch() {
-    if (isTouchPlay()) {
-      this.buildHtmlTouch();
-      this.applyCameraInset();
-      return;
-    }
-    const mk = (x, y, label, down, up) => {
-      const b = this.add.image(x, y, 'btn-circle').setScrollFactor(0).setDepth(25).setAlpha(0.86);
-      const t = this.add.text(x, y, label, {
-        fontFamily: 'Fredoka, Arial', fontSize: 26, color: '#5b2b16',
-      }).setOrigin(0.5).setScrollFactor(0).setDepth(26);
-      b.setInteractive({ useHandCursor: true });
-      b.on('pointerdown', () => { b.setTint(0xffe38a); down(); });
-      const release = () => { b.clearTint(); up(); };
-      b.on('pointerup', release);
-      b.on('pointerout', release);
-      return b;
+    if (!isTouchPlay()) return;
+    this.buildHtmlTouch();
+    this.applyCameraInset();
+  }
+
+  bindExitButton() {
+    this.exitBtn = document.getElementById('btn-exit-game');
+    if (!this.exitBtn) return;
+    this.exitBtn.classList.add('open');
+    this.onExitClick = (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      this.confirmExit();
     };
-    mk(70, HEIGHT - 70, '◀', () => this.oly.setTouchDir(-1), () => this.oly.setTouchDir(0));
-    mk(168, HEIGHT - 70, '▶', () => this.oly.setTouchDir(1), () => this.oly.setTouchDir(0));
-    mk(WIDTH - 80, HEIGHT - 70, '▲', () => this.oly.requestJump(), () => {});
+    this.exitBtn.addEventListener('click', this.onExitClick);
+  }
+
+  unbindExitButton() {
+    if (this.exitBtn && this.onExitClick) {
+      this.exitBtn.removeEventListener('click', this.onExitClick);
+    }
+    if (this.exitBtn) this.exitBtn.classList.remove('open');
+    this.exitBtn = null;
+    this.onExitClick = null;
+  }
+
+  confirmExit() {
+    if (this.finished) return;
+    this.paused = true;
+    this.physics.pause();
+    this.showBanner('¿Salir al menú?', () => {
+      this.paused = false;
+      this.hideBanner();
+      this.physics.resume();
+    }, 'Seguir jugando', {
+      quitLabel: 'Salir',
+      onQuit: () => this.exitToMenu(),
+    });
+  }
+
+  exitToMenu() {
+    this.finished = true;
+    this.paused = false;
+    this.hideBanner();
+    this.unbindExitButton();
+    this.destroyTouch();
+    this.scene.start('menu');
   }
 
   buildHtmlTouch() {
     this.touchBar = document.getElementById('touch');
     if (!this.touchBar) return;
     this.touchBar.classList.add('open');
-    this.touchHandlers = [];
 
-    this.touchBar.querySelectorAll('[data-dir]').forEach((btn) => {
-      const dir = Number(btn.dataset.dir);
-      const down = (ev) => {
-        ev.preventDefault();
-        if (btn.setPointerCapture) btn.setPointerCapture(ev.pointerId);
-        this.oly.setTouchDir(dir);
-      };
-      const up = () => this.oly.setTouchDir(0);
-      btn.addEventListener('pointerdown', down);
-      btn.addEventListener('pointerup', up);
-      btn.addEventListener('pointercancel', up);
-      btn.addEventListener('pointerleave', up);
-      this.touchHandlers.push({ btn, down, up });
+    this.unmountStick = mountVirtualStick(this.touchBar, (dir) => {
+      if (this.oly) this.oly.setTouchDir(dir);
     });
-
-    const jump = document.getElementById('touch-jump');
-    if (jump) {
-      const jumpDown = (ev) => {
-        ev.preventDefault();
-        this.oly.requestJump();
-      };
-      jump.addEventListener('pointerdown', jumpDown);
-      this.touchHandlers.push({ btn: jump, down: jumpDown });
-    }
+    this.unmountJump = mountJumpButton(
+      document.getElementById('touch-jump'),
+      () => { if (this.oly) this.oly.requestJump(); },
+    );
   }
 
   destroyTouch() {
+    if (this.unmountStick) this.unmountStick();
+    if (this.unmountJump) this.unmountJump();
+    this.unmountStick = null;
+    this.unmountJump = null;
     if (this.touchBar) this.touchBar.classList.remove('open');
-    if (this.touchHandlers) {
-      this.touchHandlers.forEach(({ btn, down, up }) => {
-        btn.removeEventListener('pointerdown', down);
-        if (up) {
-          btn.removeEventListener('pointerup', up);
-          btn.removeEventListener('pointercancel', up);
-          btn.removeEventListener('pointerleave', up);
-        }
-      });
-    }
-    this.touchHandlers = null;
     this.touchBar = null;
+    if (this.oly) this.oly.setTouchDir(0);
     const cam = this.cameras.main;
     if (cam) {
       cam.setViewport(0, 0, this.scale.width, this.scale.height);
@@ -342,8 +384,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   loseHeart() {
+    this.tookDamageThisLevel = true;
     this.hearts -= 1;
-    this.heartIcons.forEach((icon, i) => icon.setTexture(i < this.hearts ? 'heart' : 'heart-empty'));
+    this.refreshHearts();
     if (this.hearts <= 0) {
       this.time.delayedCall(200, () => this.restartLevel('¡Uy! Una vez más'));
     } else {
@@ -356,7 +399,7 @@ export class GameScene extends Phaser.Scene {
     this.physics.pause();
     this.showBanner(msg, () => {
       this.hideBanner();
-      this.scene.restart({ level: this.levelIndex, score: this.scoreStart });
+      this.scene.restart({ level: this.levelIndex, score: this.scoreStart, hearts: 3 });
     }, 'Seguir');
   }
 
@@ -365,6 +408,13 @@ export class GameScene extends Phaser.Scene {
     this.finished = true;
     this.physics.pause();
     this.sound.play('win', { volume: 0.5 });
+
+    let heartGain = 1;
+    if (!this.tookDamageThisLevel) heartGain += 1;
+    const heartsBefore = this.hearts;
+    this.hearts = Math.min(MAX_HEARTS, this.hearts + heartGain);
+    const heartsGained = this.hearts - heartsBefore;
+
     const bonus = 500 + this.hearts * 100;
     this.addScore(bonus);
     const last = this.levelIndex >= LEVELS.length - 1;
@@ -374,25 +424,31 @@ export class GameScene extends Phaser.Scene {
     } catch {
       /* ignore */
     }
+    const lifeMsg = heartsGained > 1
+      ? `¡+${heartsGained} vidas!`
+      : heartsGained === 1
+        ? '¡+1 vida!'
+        : '';
     const msg = last
-      ? `¡Olympia es la princesa del castillo!`
-      : `¡Muy bien, Oly! Nivel ${this.levelIndex + 1} listo`;
+      ? `¡Olympia es la princesa del castillo!${lifeMsg ? `\n${lifeMsg}` : ''}`
+      : `¡Muy bien, Oly! Nivel ${this.levelIndex + 1} listo${lifeMsg ? `\n${lifeMsg}` : ''}`;
     this.showBanner(msg, () => {
       this.hideBanner();
       if (last) {
         this.destroyTouch();
         this.scene.start('menu');
       } else {
-        this.scene.restart({ level: this.levelIndex + 1, score: this.score });
+        this.scene.restart({ level: this.levelIndex + 1, score: this.score, hearts: this.hearts });
       }
     }, last ? 'Volver al menú' : 'Siguiente nivel');
   }
 
-  showBanner(title, onOk, okLabel = 'Seguir') {
+  showBanner(title, onOk, okLabel = 'Seguir', options = {}) {
     const el = document.getElementById('banner');
     const titleEl = document.getElementById('banner-title');
     const scoreEl = document.getElementById('banner-score');
     const btn = document.getElementById('banner-ok');
+    const quitBtn = document.getElementById('banner-quit');
     if (!el || !btn || !titleEl) {
       onOk();
       return;
@@ -409,14 +465,32 @@ export class GameScene extends Phaser.Scene {
       if (this.bannerOk) this.bannerOk();
     };
     btn.addEventListener('click', this.onBannerClick);
+
+    if (options.onQuit && quitBtn) {
+      quitBtn.hidden = false;
+      quitBtn.textContent = options.quitLabel || 'Salir al menú';
+      this.bannerQuit = options.onQuit;
+      this.onBannerQuitClick = (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (this.bannerQuit) this.bannerQuit();
+      };
+      quitBtn.addEventListener('click', this.onBannerQuitClick);
+    } else if (quitBtn) {
+      quitBtn.hidden = true;
+    }
   }
 
   hideBanner() {
     const el = document.getElementById('banner');
     const btn = document.getElementById('banner-ok');
+    const quitBtn = document.getElementById('banner-quit');
     if (btn && this.onBannerClick) btn.removeEventListener('click', this.onBannerClick);
+    if (quitBtn && this.onBannerQuitClick) quitBtn.removeEventListener('click', this.onBannerQuitClick);
     this.onBannerClick = null;
+    this.onBannerQuitClick = null;
     this.bannerOk = null;
+    this.bannerQuit = null;
     if (el) el.classList.remove('open');
   }
 
@@ -436,16 +510,31 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  refreshOlyFace() {
+    if (!this.oly) return;
+    const cfg = loadFaceConfig();
+    buildFaceTexture(this, 'oly-face-photo-src', 'oly-face', cfg);
+    this.oly.applyFaceLayout(cfg);
+  }
+
   togglePause() {
     if (this.finished) return;
-    this.paused = !this.paused;
     if (this.paused) {
-      this.physics.pause();
-      this.showBanner('Pausa', () => this.togglePause(), 'Seguir');
-    } else {
+      this.paused = false;
       this.hideBanner();
       this.physics.resume();
+      return;
     }
+    this.paused = true;
+    this.physics.pause();
+    this.showBanner('Pausa', () => {
+      this.paused = false;
+      this.hideBanner();
+      this.physics.resume();
+    }, 'Seguir', {
+      quitLabel: 'Salir al menú',
+      onQuit: () => this.exitToMenu(),
+    });
   }
 
   update(t, dt) {

@@ -1,30 +1,59 @@
 import Phaser from 'phaser';
+import { loadFaceConfig } from '../faceConfig.js';
 
 export class Oly {
-  constructor(scene, x, y) {
+  constructor(scene, x, y, options = {}) {
     this.scene = scene;
-    this.sprite = scene.physics.add.sprite(x, y, 'oly-hit');
-    this.sprite.setVisible(false);
-    this.sprite.setSize(26, 52);
-    this.sprite.setOffset(3, 2);
-    this.sprite.setCollideWorldBounds(true);
-    this.sprite.setMaxVelocity(240, 700);
-    this.sprite.setDragX(1600);
+    this.faceCfg = loadFaceConfig();
+    this.staticPreview = options.static === true;
+
+    if (this.staticPreview) {
+      this.sprite = {
+        x,
+        y,
+        active: true,
+        body: {
+          blocked: { down: true },
+          touching: { down: true },
+          setAllowGravity() {},
+          setVelocity() {},
+        },
+        setPosition(px, py) {
+          this.x = px;
+          this.y = py;
+        },
+        setVisible() {},
+        setImmovable() {},
+        setCollideWorldBounds() {},
+        setSize() {},
+        setOffset() {},
+        setMaxVelocity() {},
+        setDragX() {},
+      };
+    } else {
+      this.sprite = scene.physics.add.sprite(x, y, 'oly-hit');
+      this.sprite.setVisible(false);
+      this.sprite.setSize(26, 52);
+      this.sprite.setOffset(3, 2);
+      this.sprite.setCollideWorldBounds(true);
+      this.sprite.setMaxVelocity(240, 700);
+      this.sprite.setDragX(1600);
+    }
 
     this.shadow = scene.add.ellipse(0, 24, 34, 10, 0x000000, 0.18);
     this.bodySpr = scene.add.image(0, -14, 'oly-body');
-    this.halo = scene.add.circle(4, -40, 17, 0xffe38a, 0);
+    this.halo = scene.add.circle(4, -41, 17, 0xffe38a, 0);
     this.halo.setStrokeStyle(3, 0xffd76a, 0.85);
-    this.face = scene.add.image(4, -40, 'oly-face');
-    this.face.setDisplaySize(36, 36);
-    this.crown = scene.add.image(5, -54, 'oly-crown');
+    this.face = scene.add.image(4, -41, 'oly-face');
+    this.crown = scene.add.image(5, -56, 'oly-crown');
+    this.applyFaceLayout(this.faceCfg);
 
     this.view = scene.add.container(x, y, [this.shadow, this.bodySpr, this.halo, this.face, this.crown]);
     this.view.setDepth(5);
     this.view.setScale(1, 1);
 
-    this.cursors = scene.input.keyboard.createCursorKeys();
-    this.wasd = scene.input.keyboard.addKeys('W,A,S,D');
+    this.cursors = this.staticPreview ? null : scene.input.keyboard.createCursorKeys();
+    this.wasd = this.staticPreview ? null : scene.input.keyboard.addKeys('W,A,S,D');
     this.speed = 220;
     this.jumpSpeed = -560;
     this.touchDir = 0;
@@ -40,6 +69,15 @@ export class Oly {
   get body() { return this.sprite.body; }
   get active() { return this.sprite.active; }
 
+  applyFaceLayout(cfg = this.faceCfg) {
+    this.faceCfg = cfg;
+    const s = cfg.spriteSize;
+    this.face.setDisplaySize(s, s);
+    this.face.setPosition(cfg.spriteX, cfg.spriteY);
+    this.halo.setPosition(cfg.spriteX, cfg.spriteY);
+    this.crown.setPosition(cfg.crownX, cfg.crownY);
+  }
+
   setPosition(x, y) {
     this.sprite.setPosition(x, y);
     this.view.setPosition(x, y);
@@ -54,6 +92,7 @@ export class Oly {
   }
 
   update(_, dt) {
+    if (this.staticPreview) return;
     this.view.setPosition(this.sprite.x, this.sprite.y);
 
     const onFloor = this.body.blocked.down || this.body.touching.down;
@@ -88,9 +127,9 @@ export class Oly {
     this.bob += dt * 0.012;
     const bounce = onFloor && dir !== 0 ? Math.sin(this.bob) * 2 : 0;
     this.bodySpr.y = -14 + bounce;
-    this.face.setPosition(4, -40 + bounce);
-    this.halo.setPosition(4, -40 + bounce);
-    this.crown.setPosition(5, -54 + bounce);
+    this.face.setPosition(this.faceCfg.spriteX, this.faceCfg.spriteY + bounce);
+    this.halo.setPosition(this.faceCfg.spriteX, this.faceCfg.spriteY + bounce);
+    this.crown.setPosition(this.faceCfg.crownX, this.faceCfg.crownY + bounce);
 
     const flicker = this.invuln > 0 && Math.floor(this.invuln / 80) % 2 === 0;
     this.view.setAlpha(flicker ? 0.35 : 1);

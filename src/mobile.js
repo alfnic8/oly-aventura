@@ -2,7 +2,7 @@ export function isTouchPlay() {
   return window.matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
 }
 
-export const TOUCH_BAR_PX = 76;
+export const TOUCH_BAR_PX = 100;
 
 export async function enterLandscapePlay() {
   try {
