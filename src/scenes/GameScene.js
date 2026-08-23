@@ -5,11 +5,12 @@ import { Oly } from '../player/Oly.js';
 import { startMusic, bindAutoMusic, toggleMusicMute, isMusicMuted } from '../audio.js';
 import { buildFaceTexture } from '../faceFromPhoto.js';
 import { loadFaceConfig } from '../faceConfig.js';
-
-const MAX_HEARTS = 5;
 import { isTouchPlay, TOUCH_BAR_PX } from '../mobile.js';
 import { mountVirtualStick, mountJumpButton } from '../touchControls.js';
 import { openFaceTune } from '../faceTune.js';
+
+const MAX_HEARTS = 5;
+const STAND_ABOVE_PLATFORM = 100;
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -42,6 +43,7 @@ export class GameScene extends Phaser.Scene {
     this.finished = false;
     this.spawn = { ...this.level.spawn };
     this.lastSafe = { ...this.level.spawn };
+    this.voidHandling = false;
 
     this.physics.world.setBounds(0, -80, this.level.worldW, this.level.worldH + 220);
     this.cameras.main.setBounds(0, 0, this.level.worldW, this.level.worldH);
@@ -383,6 +385,33 @@ export class GameScene extends Phaser.Scene {
     if (this.oly.hurt()) this.loseHeart();
   }
 
+  findSafeRespawn(x, refY = this.lastSafe.y) {
+    const platforms = [
+      ...this.level.solids.map((s) => ({ x: s.x, y: s.y, w: s.w })),
+      ...this.level.pads.map((p) => ({ x: p.x, y: p.y, w: p.w })),
+    ];
+    let best = { ...this.level.spawn };
+    let bestScore = Infinity;
+    for (const plat of platforms) {
+      if (x < plat.x - 20 || x > plat.x + plat.w + 20) continue;
+      const standY = plat.y - STAND_ABOVE_PLATFORM;
+      const standX = Phaser.Math.Clamp(x, plat.x + 24, plat.x + plat.w - 24);
+      const score = Math.abs(standY - refY) + Math.abs(standX - x) * 0.15;
+      if (score < bestScore) {
+        bestScore = score;
+        best = { x: standX, y: standY };
+      }
+    }
+    return best;
+  }
+
+  respawnOly(preferredX = this.lastSafe.x) {
+    const safe = this.findSafeRespawn(preferredX, this.lastSafe.y);
+    this.lastSafe = { ...safe };
+    this.oly.setPosition(safe.x, safe.y);
+    this.oly.body.setVelocity(0, 0);
+  }
+
   loseHeart() {
     this.tookDamageThisLevel = true;
     this.hearts -= 1;
@@ -390,8 +419,26 @@ export class GameScene extends Phaser.Scene {
     if (this.hearts <= 0) {
       this.time.delayedCall(200, () => this.restartLevel('¡Uy! Una vez más'));
     } else {
-      this.time.delayedCall(200, () => this.oly.setPosition(this.lastSafe.x, this.lastSafe.y));
+      this.time.delayedCall(200, () => this.respawnOly());
     }
+  }
+
+  fallIntoVoid() {
+    if (this.voidHandling || this.finished) return;
+    this.voidHandling = true;
+    if (this.oly.invuln > 0) {
+      this.respawnOly();
+      return;
+    }
+    this.oly.invuln = 900;
+    this.tookDamageThisLevel = true;
+    this.hearts -= 1;
+    this.refreshHearts();
+    if (this.hearts <= 0) {
+      this.restartLevel('¡Uy! Una vez más');
+      return;
+    }
+    this.respawnOly();
   }
 
   restartLevel(msg) {
@@ -555,13 +602,11 @@ export class GameScene extends Phaser.Scene {
     });
 
     if (this.oly.body.blocked.down || this.oly.body.touching.down) {
-      this.lastSafe.x = this.oly.x;
-      this.lastSafe.y = this.oly.y;
+      this.voidHandling = false;
+      this.lastSafe = this.findSafeRespawn(this.oly.x, this.oly.y);
     }
     if (this.oly.y > this.level.worldH + 20) {
-      if (this.oly.hurt()) this.loseHeart();
-      this.oly.setPosition(this.lastSafe.x, this.lastSafe.y);
-      this.oly.body.setVelocity(0, 0);
+      this.fallIntoVoid();
     }
   }
 }

@@ -209,7 +209,7 @@
         pointer-events: none;
         z-index: 2;
       }
-      @media (min-width: 900px) and (orientation: landscape) {
+      @media (orientation: landscape) {
         .portada-layout {
           flex-direction: row;
           align-items: center;
@@ -231,7 +231,7 @@
           height: min(88vh, 780px);
         }
       }
-      @media (max-width: 820px), (max-height: 520px) {
+      @media (orientation: portrait) and (max-width: 820px) {
         .portada-layout {
           flex-direction: column;
           justify-content: center;
