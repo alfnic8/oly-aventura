@@ -4,7 +4,7 @@ export function isTouchPlay() {
   return coarse && noHover;
 }
 
-export const TOUCH_BAR_PX = 112;
+export const TOUCH_BAR_PX = 132;
 
 export function getTouchBarHeight() {
   const touch = document.getElementById('touch');

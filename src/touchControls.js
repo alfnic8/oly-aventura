@@ -1,5 +1,5 @@
-const STICK_RADIUS = 52;
-const DEAD_ZONE = 14;
+const STICK_RADIUS = 58;
+const DEAD_ZONE = 16;
 
 export function mountVirtualStick(container, onDir) {
   const base = container.querySelector('[data-stick-base]');

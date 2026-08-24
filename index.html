@@ -30,7 +30,7 @@
         -webkit-touch-callout: none;
       }
       :root {
-        --touch-bar-h: 112px;
+        --touch-bar-h: 132px;
       }
       body.touch-play #game {
         height: calc(100dvh - var(--touch-bar-h) - env(safe-area-inset-bottom, 0px));
@@ -686,7 +686,7 @@
         height: calc(var(--touch-bar-h) + env(safe-area-inset-bottom, 0px));
         padding: 0 16px env(safe-area-inset-bottom, 0px);
         box-sizing: border-box;
-        align-items: flex-end;
+        align-items: center;
         justify-content: space-between;
         pointer-events: none;
         background: linear-gradient(transparent, rgba(10, 0, 20, 0.92));
@@ -699,6 +699,7 @@
         display: flex;
         flex-direction: column;
         align-items: center;
+        justify-content: center;
         gap: 4px;
       }
       .stick-label {
@@ -710,8 +711,8 @@
       }
       [data-stick-base] {
         position: relative;
-        width: 92px;
-        height: 92px;
+        width: 110px;
+        height: 110px;
         border-radius: 50%;
         background:
           radial-gradient(circle at 35% 30%, #3a2060, #1a0033 70%);
@@ -725,7 +726,7 @@
       [data-stick-base]::after {
         content: '';
         position: absolute;
-        inset: 18px;
+        inset: 20px;
         border-radius: 50%;
         border: 2px dashed rgba(0, 245, 255, 0.25);
         pointer-events: none;
@@ -734,8 +735,8 @@
         position: absolute;
         left: 50%;
         top: 50%;
-        width: 44px;
-        height: 44px;
+        width: 52px;
+        height: 52px;
         border-radius: 50%;
         transform: translate(-50%, -50%);
         background: radial-gradient(circle at 35% 28%, #ff4d9a, #cc0066 55%, #880044);
@@ -748,22 +749,23 @@
       }
       .arcade-actions {
         display: flex;
-        align-items: flex-end;
+        align-items: center;
         gap: 12px;
       }
       .jump-wrap {
         display: flex;
         flex-direction: column;
         align-items: center;
+        justify-content: center;
         gap: 4px;
       }
       #touch-jump {
         appearance: none;
         border: 4px solid #ff006e;
         border-radius: 50%;
-        width: 64px;
-        height: 64px;
-        font: 700 24px Fredoka, sans-serif;
+        width: 110px;
+        height: 110px;
+        font: 700 32px Fredoka, sans-serif;
         color: #fff;
         background: radial-gradient(circle at 35% 28%, #ff4d9a, #cc0066);
         box-shadow:
