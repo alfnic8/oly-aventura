@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { WIDTH, HEIGHT } from '../config.js';
 import { OLY_WORD, getUnlockedLetters } from '../olyLetters.js';
+import { resetGameShell } from '../mobile.js';
 
 export class LetterRevealScene extends Phaser.Scene {
   constructor() {
@@ -174,11 +175,13 @@ export class LetterRevealScene extends Phaser.Scene {
     if (this.done) return;
     this.done = true;
     if (this.preview) {
+      resetGameShell(this.game);
       this.scene.start('menu');
       return;
     }
     const next = this.continueData;
     if (!next || next.toMenu) {
+      resetGameShell(this.game);
       this.scene.start('menu');
       return;
     }

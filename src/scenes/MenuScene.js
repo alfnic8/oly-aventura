@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { WIDTH, HEIGHT } from '../config.js';
 import { LEVELS } from '../levels.js';
-import { enterLandscapePlay } from '../mobile.js';
+import { enterLandscapePlay, isTouchPlay, setTouchPlayMode, resetGameShell, refreshGameScale } from '../mobile.js';
 import { unlockAudio, startMusic, bindAutoMusic } from '../audio.js';
 import { OLY_WORD } from '../olyLetters.js';
 
@@ -28,6 +28,7 @@ export class MenuScene extends Phaser.Scene {
   }
 
   create() {
+    resetGameShell(this.game);
     this.drawArcadeBg();
     this.drawCoverPhoto();
 
@@ -241,10 +242,20 @@ export class MenuScene extends Phaser.Scene {
     startMusic(this, { menu: false });
     this.hidePortada();
     this.sound.play('click', { volume: 0.35 });
-    this.scene.start('game', { level, score: 0, hearts: 3 });
 
-    enterLandscapePlay().then(() => {
-      startMusic(this, { menu: false });
-    }).catch(() => {});
+    const begin = () => {
+      /* Reserve touch-bar height before Phaser lays out FIT scale. */
+      if (isTouchPlay()) setTouchPlayMode(true);
+      refreshGameScale(this.game);
+      this.scene.start('game', { level, score: 0, hearts: 3 });
+      refreshGameScale(this.game);
+    };
+
+    enterLandscapePlay()
+      .then(() => {
+        startMusic(this, { menu: false });
+        begin();
+      })
+      .catch(() => begin());
   }
 }
