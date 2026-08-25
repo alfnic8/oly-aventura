@@ -190,13 +190,21 @@ export class LetterRevealScene extends Phaser.Scene {
     const isRecord = this.score > 0 && this.score >= best;
 
     /* Fixed to camera so zoom never hides Negrito / score */
+    const groundY = HEIGHT * 0.78;
+    const pupX = WIDTH / 2 - 48;
+    const babyX = WIDTH / 2 + 56;
+    const pupScale = 0.4;
+    let matchH = 0;
+
     if (this.textures.exists('puppy-sit')) {
-      const pup = this.add.image(WIDTH / 2, HEIGHT * 0.78, 'puppy-sit')
+      const pupTex = this.textures.get('puppy-sit').getSourceImage();
+      matchH = (pupTex.height || 334) * pupScale;
+      const pup = this.add.image(pupX, groundY, 'puppy-sit')
         .setOrigin(0.5, 1)
         .setDepth(20)
         .setScrollFactor(0)
         .setAlpha(0)
-        .setScale(0.4);
+        .setScale(pupScale);
       this.tweens.add({
         targets: pup,
         alpha: 1,
@@ -206,12 +214,44 @@ export class LetterRevealScene extends Phaser.Scene {
       });
       this.tweens.add({
         targets: pup,
-        scaleX: { from: 0.4, to: 0.44 },
-        scaleY: { from: 0.4, to: 0.37 },
+        scaleX: { from: pupScale, to: pupScale * 1.1 },
+        scaleY: { from: pupScale, to: pupScale * 0.925 },
         duration: 360,
         yoyo: true,
         repeat: 3,
         delay: 400,
+        ease: 'Sine.inOut',
+      });
+    }
+
+    if (this.textures.exists('doll-goal')) {
+      const dollTex = this.textures.get('doll-goal').getSourceImage();
+      const dollH = dollTex.height || 96;
+      const dollW = dollTex.width || 86;
+      const h = matchH || dollH * pupScale;
+      const w = dollW * (h / dollH);
+      const baby = this.add.image(babyX, groundY, 'doll-goal')
+        .setOrigin(0.5, 1)
+        .setDepth(20)
+        .setScrollFactor(0)
+        .setAlpha(0)
+        .setDisplaySize(w, h);
+      this.tweens.add({
+        targets: baby,
+        alpha: 1,
+        y: HEIGHT * 0.76,
+        duration: 500,
+        delay: 80,
+        ease: 'Back.out',
+      });
+      this.tweens.add({
+        targets: baby,
+        displayWidth: { from: w, to: w * 1.08 },
+        displayHeight: { from: h, to: h * 0.92 },
+        duration: 360,
+        yoyo: true,
+        repeat: 3,
+        delay: 480,
         ease: 'Sine.inOut',
       });
     }

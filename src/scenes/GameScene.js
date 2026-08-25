@@ -80,8 +80,17 @@ export class GameScene extends Phaser.Scene {
       this.puppies.push(pup);
     });
 
-    this.crown = this.physics.add.sprite(this.level.crown.x, this.level.crown.y, 'crown-goal');
+    const goalKey = this.level.crown.key || 'crown-goal';
+    this.crown = this.physics.add.sprite(this.level.crown.x, this.level.crown.y, goalKey);
     this.crown.body.setAllowGravity(false);
+    if (goalKey === 'doll-goal') {
+      this.crown.setOrigin(0.5, 1);
+      this.crown.setDisplaySize(72, 80);
+      const bw = 40;
+      const bh = 56;
+      this.crown.body.setSize(bw, bh);
+      this.crown.body.setOffset((this.crown.width - bw) / 2, this.crown.height - bh);
+    }
     this.tweens.add({ targets: this.crown, y: this.crown.y - 10, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
 
     this.oly = new Oly(this, this.level.spawn.x, this.level.spawn.y);
@@ -196,13 +205,20 @@ export class GameScene extends Phaser.Scene {
     const bat = this.enemies.create(def.x, def.y, 'bat-0');
     bat.play('bat-fly');
     bat.body.setAllowGravity(false);
-    /* Hitbox a bit taller/wider so stomps register more reliably */
-    bat.body.setSize(36, 28);
-    bat.body.setOffset(8, 2);
+    /* Hitbox solo del cuerpo (no alas) — evita golpes “fantasma” */
+    bat.body.setSize(20, 18);
+    bat.body.setOffset(16, 9);
     bat.minX = def.minX;
     bat.maxX = def.maxX;
     bat.speed = def.speed ?? 90;
     bat.dir = 1;
+    bat.baseY = def.y;
+    bat.erratic = def.erratic === true || def.mode === 'erratic';
+    bat.phase = Math.random() * Math.PI * 2;
+    bat.bobAmp = def.bobAmp ?? (bat.erratic ? 22 : 0);
+    bat.bobFreq = def.bobFreq ?? (2.2 + Math.random() * 1.1);
+    if (def.minY != null) bat.minY = def.minY;
+    if (def.maxY != null) bat.maxY = def.maxY;
     return bat;
   }
 
@@ -839,9 +855,24 @@ export class GameScene extends Phaser.Scene {
 
     this.enemies.children.iterate((bat) => {
       if (!bat || !bat.active) return;
-      bat.x += bat.dir * bat.speed * (dt / 1000);
-      if (bat.x > bat.maxX) { bat.dir = -1; bat.scaleX = -1; }
-      if (bat.x < bat.minX) { bat.dir = 1; bat.scaleX = 1; }
+      const sec = dt / 1000;
+      if (bat.erratic) {
+        bat.phase += sec;
+        const nx = bat.x + bat.dir * bat.speed * sec;
+        let ny = bat.baseY
+          + Math.sin(bat.phase * bat.bobFreq) * bat.bobAmp
+          + Math.sin(bat.phase * bat.bobFreq * 1.55 + 1.1) * (bat.bobAmp * 0.35);
+        if (bat.minY != null && bat.maxY != null) {
+          ny = Phaser.Math.Clamp(ny, bat.minY, bat.maxY);
+        }
+        bat.setPosition(nx, ny);
+        if (bat.x > bat.maxX) { bat.dir = -1; bat.setFlipX(true); bat.x = bat.maxX; }
+        if (bat.x < bat.minX) { bat.dir = 1; bat.setFlipX(false); bat.x = bat.minX; }
+        return;
+      }
+      bat.x += bat.dir * bat.speed * sec;
+      if (bat.x > bat.maxX) { bat.dir = -1; bat.setFlipX(true); }
+      if (bat.x < bat.minX) { bat.dir = 1; bat.setFlipX(false); }
     });
 
     if ((this.oly.body.blocked.down || this.oly.body.touching.down)

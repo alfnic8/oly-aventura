@@ -20,6 +20,7 @@ export class BootScene extends Phaser.Scene {
       frameHeight: 148,
     });
     this.load.image('puppy-sit', 'assets/puppy-sit.png');
+    this.load.image('doll-goal', 'assets/doll-goal.png');
     this.load.audio('intro', 'assets/sfx/intro.mp3');
     this.load.audio('bark', 'assets/sfx/bark.mp3');
     ['jump', 'star', 'crystal', 'stomp', 'hurt', 'win', 'start', 'click'].forEach((name) => {
@@ -54,6 +55,9 @@ export class BootScene extends Phaser.Scene {
     }
     if (this.textures.exists('puppy-sit')) {
       this.textures.get('puppy-sit').setFilter(Phaser.Textures.FilterMode.NEAREST);
+    }
+    if (this.textures.exists('doll-goal')) {
+      this.textures.get('doll-goal').setFilter(Phaser.Textures.FilterMode.NEAREST);
     }
 
     if (!this.anims.exists('bat-fly')) {
