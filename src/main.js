@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { WIDTH, HEIGHT } from './config.js';
 import { isIOS, bindMuteButtons } from './audio.js';
 import { registerPwaServiceWorker, setupPwaInstall } from './pwa.js';
+import { refreshGameScale } from './mobile.js';
 import { BootScene } from './scenes/BootScene.js';
 import { CreditsScene } from './scenes/CreditsScene.js';
 import { MenuScene } from './scenes/MenuScene.js';
@@ -43,6 +44,6 @@ bindMuteButtons();
 registerPwaServiceWorker();
 setupPwaInstall();
 
-const refreshScale = () => game.scale.refresh();
+const refreshScale = () => refreshGameScale(game);
 window.addEventListener('resize', refreshScale);
 window.addEventListener('orientationchange', () => setTimeout(refreshScale, 280));

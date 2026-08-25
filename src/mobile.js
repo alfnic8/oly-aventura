@@ -3,10 +3,11 @@ import Phaser from 'phaser';
 export function isTouchPlay() {
   const coarse = window.matchMedia('(pointer: coarse)').matches;
   const noHover = window.matchMedia('(hover: none)').matches;
-  return coarse && noHover;
+  const touchPoints = navigator.maxTouchPoints > 0 || 'ontouchstart' in window;
+  return (coarse && noHover) || (touchPoints && noHover);
 }
 
-export const TOUCH_BAR_PX = 132;
+export const TOUCH_BAR_PX = 118;
 
 export function getTouchBarHeight() {
   const touch = document.getElementById('touch');
@@ -32,13 +33,21 @@ export function resetGameShell(game) {
   refreshGameScale(game);
 }
 
-/** On touch devices, cover the whole #game area (no letterboxing). */
+function wantsCoverScale() {
+  return document.body.classList.contains('touch-play') || isTouchPlay();
+}
+
+/**
+ * Cover the whole #game area on touch (no letterboxing).
+ * Important: displaySize aspect mode must be updated when changing scaleMode at runtime.
+ */
 export function applyMobileScaleMode(game) {
   const scale = game?.scale;
   if (!scale) return;
-  const next = isTouchPlay() ? Phaser.Scale.ENVELOP : Phaser.Scale.FIT;
-  if (scale.scaleMode !== next) {
-    scale.scaleMode = next;
+  const next = wantsCoverScale() ? Phaser.Scale.ENVELOP : Phaser.Scale.FIT;
+  scale.scaleMode = next;
+  if (next !== Phaser.Scale.RESIZE && next !== Phaser.Scale.EXPAND) {
+    scale.displaySize.setAspectMode(next);
   }
 }
 
@@ -51,11 +60,18 @@ export function refreshGameScale(game) {
   applyMobileScaleMode(game);
   const gen = ++scaleRefreshGen;
   const parent = scale.parent;
-  if (parent) void parent.offsetHeight;
+  if (parent) {
+    void parent.offsetWidth;
+    void parent.offsetHeight;
+  }
   scale.refresh();
   requestAnimationFrame(() => {
     if (gen !== scaleRefreshGen) return;
-    if (parent) void parent.offsetHeight;
+    applyMobileScaleMode(game);
+    if (parent) {
+      void parent.offsetWidth;
+      void parent.offsetHeight;
+    }
     scale.refresh();
     setTimeout(() => {
       if (gen !== scaleRefreshGen) return;
