@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { WIDTH, HEIGHT } from '../config.js';
 import { LEVELS } from '../levels.js';
 import { enterLandscapePlay, isTouchPlay, setTouchPlayMode, resetGameShell, refreshGameScale } from '../mobile.js';
-import { unlockAudio, startMusic, bindAutoMusic, playVoice, stopVoice } from '../audio.js';
+import { unlockAudio, startMusic, bindAutoMusic, playVoice, stopVoice, isMusicMuted } from '../audio.js';
 import { OLY_WORD, resetLetters } from '../olyLetters.js';
 
 const SECRET_HOLD_MS = 900;
@@ -75,17 +75,54 @@ export class MenuScene extends Phaser.Scene {
 
     bindAutoMusic(this);
     this.saidHello = false;
+    this.playHelloOnce = () => {
+      if (this.saidHello || this.started || isMusicMuted()) return;
+      this.saidHello = true;
+      playVoice('hello');
+    };
     this.onAudioTap = (ev) => {
-      if (ev.target?.closest?.('#btn-jugar, [data-mute-btn], #btn-secret-levels, #level-pick')) return;
+      if (ev.target?.closest?.('#btn-jugar, [data-mute-btn], #level-pick, #howto')) return;
       startMusic(this, { menu: true });
-      if (!this.saidHello && !this.started) {
-        this.saidHello = true;
-        playVoice('hello');
-      }
+      this.playHelloOnce();
     };
     const audioSig = resetSignal('audio');
     this.portada.addEventListener('touchstart', this.onAudioTap, { passive: true, signal: audioSig });
     this.portada.addEventListener('pointerdown', this.onAudioTap, { signal: audioSig });
+
+    this.btnHowto = document.getElementById('btn-howto');
+    this.howto = document.getElementById('howto');
+    this.howtoClose = document.getElementById('howto-close');
+    if (this.btnHowto) {
+      this.btnHowto.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        this.openHowto();
+      }, { signal: jugarSig });
+    }
+    if (this.howtoClose) {
+      this.howtoClose.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        this.closeHowto();
+      }, { signal: jugarSig });
+    }
+    if (this.howto) {
+      this.howto.addEventListener('click', (ev) => {
+        if (ev.target === this.howto) this.closeHowto();
+      }, { signal: jugarSig });
+    }
+  }
+
+  openHowto() {
+    if (!this.howto || this.started) return;
+    this.playHelloOnce();
+    this.howto.classList.add('open');
+    this.howto.setAttribute('aria-hidden', 'false');
+  }
+
+  closeHowto() {
+    if (!this.howto) return;
+    this.howto.classList.remove('open');
+    this.howto.setAttribute('aria-hidden', 'true');
   }
 
   refreshHighScore() {
@@ -261,6 +298,7 @@ export class MenuScene extends Phaser.Scene {
     }
     this.unbindMenuDom();
     this.closeLevelPick();
+    this.closeHowto();
     if (this.portada) this.portada.classList.remove('open');
   }
 
@@ -272,9 +310,19 @@ export class MenuScene extends Phaser.Scene {
     unlockAudio(this);
     startMusic(this, { menu: false });
     this.hidePortada();
-    stopVoice();
-    playVoice('start');
     this.sound.play('click', { volume: 0.35 });
+
+    const playStartLine = () => {
+      stopVoice();
+      playVoice('start');
+    };
+    if (!this.saidHello) {
+      this.saidHello = true;
+      playVoice('hello');
+      window.setTimeout(playStartLine, 2100);
+    } else {
+      playStartLine();
+    }
 
     const begin = () => {
       /* Reserve touch-bar height before Phaser lays out ENVELOP scale. */

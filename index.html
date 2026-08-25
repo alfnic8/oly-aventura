@@ -508,6 +508,115 @@
         background: rgba(10, 0, 30, 0.85);
         box-shadow: 0 0 16px rgba(0, 245, 255, 0.35);
       }
+      #btn-howto {
+        pointer-events: auto;
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
+        appearance: none;
+        border: 2px solid #ffea00;
+        border-radius: 8px;
+        margin: 0;
+        padding: 12px 22px;
+        font-family: 'Press Start 2P', monospace;
+        font-size: clamp(8px, 1.8vh, 11px);
+        line-height: 1.6;
+        cursor: pointer;
+        color: #ffea00;
+        background: rgba(10, 0, 30, 0.85);
+        box-shadow: 0 0 16px rgba(255, 234, 0, 0.35);
+      }
+      #btn-howto:active {
+        transform: translateY(1px);
+      }
+      #howto {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 56;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        box-sizing: border-box;
+        background: rgba(5, 0, 16, 0.82);
+      }
+      #howto.open { display: flex; }
+      .howto-card {
+        width: min(520px, 100%);
+        max-height: min(86vh, 640px);
+        overflow: auto;
+        border: 4px solid #2a1040;
+        border-radius: 12px;
+        padding: 22px 20px 18px;
+        box-sizing: border-box;
+        background:
+          radial-gradient(ellipse at 50% 0%, rgba(255, 0, 110, 0.18), transparent 55%),
+          #12061f;
+        box-shadow:
+          inset 0 0 0 2px #ff006e,
+          0 0 28px rgba(255, 0, 110, 0.35);
+      }
+      .howto-card h2 {
+        margin: 0 0 14px;
+        font-family: 'Press Start 2P', monospace;
+        font-size: clamp(12px, 2.4vh, 16px);
+        color: #ffea00;
+        text-align: center;
+        text-shadow: 0 0 10px rgba(255, 234, 0, 0.45);
+      }
+      .howto-card ul {
+        margin: 0 0 16px;
+        padding: 0 0 0 18px;
+        color: #fff7fb;
+        font-family: Fredoka, Arial, sans-serif;
+        font-size: clamp(15px, 2.6vh, 18px);
+        line-height: 1.45;
+      }
+      .howto-card li {
+        margin: 0 0 10px;
+      }
+      .howto-card li strong {
+        color: #00f5ff;
+      }
+      #howto-close {
+        display: block;
+        width: 100%;
+        appearance: none;
+        border: none;
+        border-radius: 8px;
+        padding: 14px 18px;
+        font-family: 'Press Start 2P', monospace;
+        font-size: 12px;
+        color: #0a0014;
+        background: linear-gradient(180deg, #ffea00 0%, #ff9500 100%);
+        cursor: pointer;
+      }
+      #life-toast {
+        display: none;
+        position: fixed;
+        left: 50%;
+        top: 18%;
+        transform: translateX(-50%) scale(0.92);
+        z-index: 70;
+        pointer-events: none;
+        padding: 14px 22px;
+        border: 3px solid #ff006e;
+        border-radius: 10px;
+        background: rgba(26, 0, 51, 0.94);
+        color: #ffea00;
+        font-family: 'Press Start 2P', monospace;
+        font-size: clamp(12px, 2.8vh, 18px);
+        text-align: center;
+        text-shadow: 0 0 10px rgba(255, 234, 0, 0.5);
+        box-shadow: 0 0 24px rgba(255, 0, 110, 0.55);
+        opacity: 0;
+        transition: opacity 0.25s ease, transform 0.25s ease;
+      }
+      #life-toast.open {
+        display: block;
+        opacity: 1;
+        transform: translateX(-50%) scale(1);
+      }
       #btn-install[hidden] {
         display: none !important;
       }
@@ -870,6 +979,7 @@
           <p class="sub">En el castillo de hadas</p>
           <div class="portada-actions">
             <button id="btn-jugar" type="button">START</button>
+            <button id="btn-howto" type="button">CÓMO JUGAR</button>
             <button id="btn-install" type="button">INSTALAR APP</button>
             <p id="install-ios-hint" hidden>En iPhone: Compartir → Agregar a pantalla de inicio</p>
             <p id="install-desktop-hint" hidden>En Chrome/Edge: menú ⋮ → Instalar app, o el icono ⊕ en la barra</p>
@@ -898,6 +1008,22 @@
         <button id="level-pick-close" type="button">CERRAR</button>
       </div>
     </div>
+    <div id="howto" aria-hidden="true">
+      <div class="howto-card">
+        <h2>CÓMO JUGAR</h2>
+        <ul>
+          <li><strong>Mover:</strong> flechas / WASD o la palanca.</li>
+          <li><strong>Saltar:</strong> espacio / W / ↑ o el botón A.</li>
+          <li><strong>Murciélagos:</strong> saltáles encima para aplastarlos.</li>
+          <li><strong>Estrellas y cristales</strong> suman puntos.</li>
+          <li>Cada <strong>5000 puntos</strong> ganás una <strong>vida extra</strong>.</li>
+          <li>Llegá a la <strong>corona</strong> (o la muñeca en el nivel 3) para pasar.</li>
+          <li>En el celular: girá a <strong>horizontal</strong>.</li>
+        </ul>
+        <button id="howto-close" type="button">¡ENTENDIDO!</button>
+      </div>
+    </div>
+    <div id="life-toast" aria-live="polite">¡VIDA EXTRA!</div>
     <audio id="oly-bgm" loop playsinline webkit-playsinline preload="auto" src="assets/sfx/intro.mp3"></audio>
     <div id="banner">
       <div class="banner-card">

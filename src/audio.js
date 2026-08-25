@@ -87,20 +87,26 @@ export function unlockAudio(scene) {
   const ctx = scene?.sound?.context;
   if (ctx && ctx.state === 'suspended') ctx.resume().catch(() => {});
 
-  const el = getBgmEl();
-  if (bgmUnlocked) return Promise.resolve();
+  const unlockEl = (el) => {
+    if (!el) return Promise.resolve();
+    const prevMuted = el.muted;
+    el.muted = true;
+    return el.play()
+      .then(() => {
+        el.pause();
+        el.currentTime = 0;
+      })
+      .catch(() => {})
+      .finally(() => {
+        el.muted = musicMuted ? true : prevMuted;
+      });
+  };
 
-  el.muted = true;
-  return el.play()
+  return Promise.all([unlockEl(getBgmEl()), unlockEl(getVoiceEl())])
     .then(() => {
-      el.pause();
-      el.currentTime = 0;
       bgmUnlocked = true;
     })
-    .catch(() => {})
-    .finally(() => {
-      el.muted = musicMuted;
-    });
+    .catch(() => {});
 }
 
 export function playBgm(scene, { menu = false } = {}) {
@@ -198,6 +204,7 @@ function getVoiceEl() {
   voiceEl.preload = 'auto';
   voiceEl.setAttribute('playsinline', '');
   voiceEl.setAttribute('webkit-playsinline', '');
+  voiceEl.src = VOICE_SRC.hello;
   document.body.appendChild(voiceEl);
   return voiceEl;
 }
@@ -214,10 +221,34 @@ export function playVoice(key, { volume = 1 } = {}) {
   } catch {
     /* ignore */
   }
-  if (el.getAttribute('src') !== src) el.src = src;
+  /* Always re-assign src — mobile browsers are picky with cached mp4 audio */
+  el.src = src;
+  try {
+    el.load();
+  } catch {
+    /* ignore */
+  }
+  el.muted = false;
   el.volume = volume;
-  el.currentTime = 0;
-  const tryPlay = () => el.play().catch(() => {});
+  try {
+    el.currentTime = 0;
+  } catch {
+    /* ignore */
+  }
+
+  const tryPlay = () => {
+    const p = el.play();
+    if (p && typeof p.then === 'function') {
+      p.catch(() => {
+        /* Retry once after unlock (iOS often needs the voice element primed) */
+        unlockAudio(null).then(() => {
+          el.muted = false;
+          el.play().catch(() => {});
+        });
+      });
+    }
+  };
+
   if (bgmUnlocked) {
     tryPlay();
     return;

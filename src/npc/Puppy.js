@@ -7,7 +7,7 @@ const NEAR_PX = 120;
 
 const BARK_LINES = [
   '¡Guau!',
-  '¡Soy Negrito!',
+  '¡Me llamo Negrito!',
   '¡Vamos por la corona!',
   '¡Guau guau!',
 ];

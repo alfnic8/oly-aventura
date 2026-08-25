@@ -50,7 +50,7 @@ export const LEVELS = [
         minX: 110,
         maxX: 340,
         speed: 52,
-        lines: ['¡Guau!', '¡Soy Negrito!', '¡Vamos por la corona!'],
+        lines: ['¡Guau!', '¡Me llamo Negrito!', '¡Vamos por la corona!'],
       },
     ],
     stars: [

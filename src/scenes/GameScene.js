@@ -457,7 +457,8 @@ export class GameScene extends Phaser.Scene {
     }
     if (!gained) return;
     this.refreshHearts();
-    this.sound.play('win', { volume: 0.35 });
+    this.sound.play('win', { volume: 0.45 });
+    this.showLifeToast(gained);
 
     const label = gained > 1
       ? `¡+${gained} VIDAS!  ${this.score} pts`
@@ -507,6 +508,17 @@ export class GameScene extends Phaser.Scene {
       ease: 'Sine.out',
       onComplete: () => pop.destroy(),
     });
+  }
+
+  showLifeToast(gained = 1) {
+    const el = document.getElementById('life-toast');
+    if (!el) return;
+    el.textContent = gained > 1 ? `¡+${gained} VIDAS!` : '¡VIDA EXTRA!';
+    el.classList.add('open');
+    clearTimeout(this._lifeToastTimer);
+    this._lifeToastTimer = setTimeout(() => {
+      el.classList.remove('open');
+    }, 2200);
   }
 
   takeStar(star) {
