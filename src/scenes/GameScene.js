@@ -96,8 +96,7 @@ export class GameScene extends Phaser.Scene {
     this.oly = new Oly(this, this.level.spawn.x, this.level.spawn.y);
     this.cameras.main.startFollow(this.oly.sprite, true, 0.12, 0.12);
     this.cameras.main.setDeadzone(80, 60);
-    /* Keep Oly above the overlaid touch controls */
-    if (isTouchPlay()) this.cameras.main.setFollowOffset(0, -72);
+    if (isTouchPlay()) this.cameras.main.setFollowOffset(0, 0);
     this.input.keyboard.addCapture('SPACE,UP,LEFT,RIGHT');
 
     this.physics.add.collider(this.oly.sprite, this.solids);
@@ -419,7 +418,7 @@ export class GameScene extends Phaser.Scene {
     if (this.onCameraResize) this.scale.off('resize', this.onCameraResize);
     this.onCameraResize = () => {
       cam.setViewport(0, 0, WIDTH, HEIGHT);
-      cam.setFollowOffset(0, -72);
+      cam.setFollowOffset(0, 0);
     };
     this.onCameraResize();
     this.scale.on('resize', this.onCameraResize);

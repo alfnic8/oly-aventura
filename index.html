@@ -32,23 +32,18 @@
         -webkit-touch-callout: none;
       }
       :root {
-        --touch-bar-h: 118px;
+        --touch-bar-h: 124px;
       }
-      /* Full-bleed playfield; touch controls overlay the bottom */
+      /* Game above the touch bar — full world visible (FIT), no crop */
       body.touch-play #game {
         position: fixed;
         left: 0;
         right: 0;
         top: 0;
-        bottom: 0;
         width: 100%;
-        height: 100%;
-        height: 100dvh;
-        max-height: none;
-      }
-      body.touch-play #game canvas {
-        /* Force cover even if Phaser inline styles lag behind */
-        margin: 0 !important;
+        height: calc(100dvh - var(--touch-bar-h) - env(safe-area-inset-bottom, 0px));
+        max-height: calc(100dvh - var(--touch-bar-h) - env(safe-area-inset-bottom, 0px));
+        bottom: auto;
       }
       #game {
         width: 100%;
@@ -56,7 +51,7 @@
         height: 100dvh;
         max-height: none;
         overflow: hidden;
-        background: #0a0014;
+        background: #160c24;
       }
       #game canvas {
         display: block;

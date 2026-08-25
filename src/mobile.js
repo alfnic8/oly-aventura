@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { WIDTH, HEIGHT } from './config.js';
 
 export function isTouchPlay() {
   const coarse = window.matchMedia('(pointer: coarse)').matches;
@@ -7,7 +8,7 @@ export function isTouchPlay() {
   return (coarse && noHover) || (touchPoints && noHover);
 }
 
-export const TOUCH_BAR_PX = 118;
+export const TOUCH_BAR_PX = 124;
 
 export function getTouchBarHeight() {
   const touch = document.getElementById('touch');
@@ -33,21 +34,18 @@ export function resetGameShell(game) {
   refreshGameScale(game);
 }
 
-function wantsCoverScale() {
-  return document.body.classList.contains('touch-play') || isTouchPlay();
-}
-
 /**
- * Cover the whole #game area on touch (no letterboxing).
- * Important: displaySize aspect mode must be updated when changing scaleMode at runtime.
+ * Always FIT so the full 960×540 world stays visible (no cropped character).
+ * On touch, #game is sized above the control bar so FIT can use the full height.
  */
 export function applyMobileScaleMode(game) {
   const scale = game?.scale;
   if (!scale) return;
-  const next = wantsCoverScale() ? Phaser.Scale.ENVELOP : Phaser.Scale.FIT;
-  scale.scaleMode = next;
-  if (next !== Phaser.Scale.RESIZE && next !== Phaser.Scale.EXPAND) {
-    scale.displaySize.setAspectMode(next);
+  scale.scaleMode = Phaser.Scale.FIT;
+  scale.displaySize.setAspectMode(Phaser.Scale.FIT);
+  /* Keep design size stable if a previous EXPAND/ENVELOP run changed gameSize */
+  if (scale.gameSize && (scale.gameSize.width !== WIDTH || scale.gameSize.height !== HEIGHT)) {
+    scale.setGameSize(WIDTH, HEIGHT);
   }
 }
 
