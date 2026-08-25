@@ -1,7 +1,13 @@
 import { isTouchPlay } from './mobile.js';
 
 const BGM_SRC = 'assets/sfx/intro.mp3';
+const VOICE_SRC = {
+  hello: 'assets/sfx/oly-hello.mp4',
+  start: 'assets/sfx/oly-start.mp4',
+};
+
 let bgmEl = null;
+let voiceEl = null;
 let bgmUnlocked = false;
 let musicMuted = false;
 let autoStartBound = false;
@@ -26,6 +32,7 @@ export function setMusicMuted(muted) {
   el.muted = muted;
   if (muted) {
     el.pause();
+    stopVoice();
     window.__olyGame?.sound?.stopByKey?.('intro');
   } else {
     const game = window.__olyGame;
@@ -113,7 +120,14 @@ export function playBgm(scene, { menu = false } = {}) {
 
   const tryPlay = () => {
     if (musicMuted) return;
-    el.play().catch(() => {});
+    el.muted = false;
+    el.volume = vol;
+    const p = el.play();
+    if (p && typeof p.then === 'function') {
+      p.then(() => { bgmUnlocked = true; }).catch(() => {
+        /* Autoplay blocked — next user gesture will retry via bindAutoMusic */
+      });
+    }
   };
 
   if (bgmUnlocked) {
@@ -146,23 +160,77 @@ export function startMusic(scene, { menu = false } = {}) {
   playBgm(scene, { menu });
 }
 
+/** Start or resume menu BGM; retries on any user gesture until it plays. */
 export function bindAutoMusic(scene) {
   bindMuteButtons();
   startMusic(scene, { menu: true });
 
-  if (autoStartBound) return;
-  autoStartBound = true;
-
   const kick = () => {
     if (musicMuted) return;
-    unlockAudio(scene).then(() => playBgm(scene, { menu: true }));
+    const el = getBgmEl();
+    unlockAudio(scene).then(() => {
+      playBgm(scene, { menu: true });
+    });
+    /* If already unlocked, play immediately (returning to menu, etc.) */
+    if (bgmUnlocked && el.paused) {
+      playBgm(scene, { menu: true });
+    }
   };
 
-  document.addEventListener('pointerdown', kick, { once: true, passive: true });
-  document.addEventListener('keydown', kick, { once: true });
+  if (!autoStartBound) {
+    autoStartBound = true;
+    document.addEventListener('pointerdown', kick, { passive: true });
+    document.addEventListener('keydown', kick);
+    window.addEventListener('orientationchange', () => setTimeout(kick, 350));
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && !musicMuted) kick();
+    });
+  } else {
+    /* Menu revisited — kick again in case audio was paused */
+    kick();
+  }
+}
 
-  window.addEventListener('orientationchange', () => setTimeout(kick, 350));
-  document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && !musicMuted) kick();
-  });
+function getVoiceEl() {
+  if (voiceEl) return voiceEl;
+  voiceEl = document.createElement('audio');
+  voiceEl.id = 'oly-voice';
+  voiceEl.preload = 'auto';
+  voiceEl.setAttribute('playsinline', '');
+  voiceEl.setAttribute('webkit-playsinline', '');
+  document.body.appendChild(voiceEl);
+  return voiceEl;
+}
+
+/** Voice lines from WhatsApp clips (mp4). Keys: hello | start */
+export function playVoice(key, { volume = 1 } = {}) {
+  if (musicMuted) return;
+  const src = VOICE_SRC[key];
+  if (!src) return;
+
+  const el = getVoiceEl();
+  try {
+    el.pause();
+  } catch {
+    /* ignore */
+  }
+  if (el.getAttribute('src') !== src) el.src = src;
+  el.volume = volume;
+  el.currentTime = 0;
+  const tryPlay = () => el.play().catch(() => {});
+  if (bgmUnlocked) {
+    tryPlay();
+    return;
+  }
+  unlockAudio(null).then(tryPlay);
+}
+
+export function stopVoice() {
+  if (!voiceEl) return;
+  try {
+    voiceEl.pause();
+    voiceEl.currentTime = 0;
+  } catch {
+    /* ignore */
+  }
 }

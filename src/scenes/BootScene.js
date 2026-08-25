@@ -15,7 +15,13 @@ export class BootScene extends Phaser.Scene {
       frameWidth: 96,
       frameHeight: 128,
     });
+    this.load.spritesheet('puppy-walk', 'assets/puppy-walk.png', {
+      frameWidth: 192,
+      frameHeight: 148,
+    });
+    this.load.image('puppy-sit', 'assets/puppy-sit.png');
     this.load.audio('intro', 'assets/sfx/intro.mp3');
+    this.load.audio('bark', 'assets/sfx/bark.mp3');
     ['jump', 'star', 'crystal', 'stomp', 'hurt', 'win', 'start', 'click'].forEach((name) => {
       this.load.audio(name, `assets/sfx/${name}.wav`);
     });
@@ -43,12 +49,27 @@ export class BootScene extends Phaser.Scene {
     if (this.textures.exists('oly-anim')) {
       this.textures.get('oly-anim').setFilter(Phaser.Textures.FilterMode.NEAREST);
     }
+    if (this.textures.exists('puppy-walk')) {
+      this.textures.get('puppy-walk').setFilter(Phaser.Textures.FilterMode.NEAREST);
+    }
+    if (this.textures.exists('puppy-sit')) {
+      this.textures.get('puppy-sit').setFilter(Phaser.Textures.FilterMode.NEAREST);
+    }
 
     if (!this.anims.exists('bat-fly')) {
       this.anims.create({
         key: 'bat-fly',
         frames: [{ key: 'bat-0' }, { key: 'bat-1' }],
         frameRate: 6,
+        repeat: -1,
+      });
+    }
+
+    if (!this.anims.exists('puppy-walk-anim')) {
+      this.anims.create({
+        key: 'puppy-walk-anim',
+        frames: this.anims.generateFrameNumbers('puppy-walk', { start: 0, end: 5 }),
+        frameRate: 9,
         repeat: -1,
       });
     }

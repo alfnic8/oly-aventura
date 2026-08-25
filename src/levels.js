@@ -1,7 +1,7 @@
 export const LEVELS = [
   {
     title: 'Jardín del castillo',
-    hint: 'Saltá los huecos. ¡Cuidado con los murciélagos!',
+    hint: '¡Cuidado con los murciélagos! Juntá puntos para ganar vidas.',
     sky: [0x7ecbff, 0xf7c6ff],
     ground: 'ground-garden',
     worldW: 6600,
@@ -42,6 +42,17 @@ export const LEVELS = [
       { x: 6420, y: 320, w: 90 },
     ],
     movers: [],
+    npcs: [
+      {
+        type: 'puppy',
+        x: 220,
+        y: 460,
+        minX: 110,
+        maxX: 340,
+        speed: 52,
+        lines: ['¡Guau!', '¡Soy Negrito!', '¡Vamos por la corona!'],
+      },
+    ],
     stars: [
       [200, 400], [460, 300], [700, 400], [900, 280], [1140, 400],
       [1360, 270], [1520, 190], [1720, 400], [1940, 280], [2480, 260],
@@ -98,6 +109,8 @@ export const LEVELS = [
       { x: 4980, y: 330, w: 120, minX: 4860, maxX: 5360, speed: 115 },
       { x: 5680, y: 320, w: 120, minX: 5560, maxX: 6060, speed: 120 },
       { x: 6380, y: 330, w: 120, minX: 6240, maxX: 6680, speed: 115 },
+      /* Ascensor del medio — Negrito viaja acá */
+      { x: 3340, y: 360, w: 110, axis: 'y', minY: 270, maxY: 420, speed: 70 },
     ],
     stars: [
       [180, 400], [400, 300], [540, 400], [760, 280], [960, 300],
@@ -120,6 +133,14 @@ export const LEVELS = [
       { x: 6900, y: 430, minX: 6800, maxX: 7100, speed: 115 },
     ],
     crown: { x: 7040, y: 400 },
+    npcs: [
+      {
+        type: 'puppy',
+        mode: 'sit',
+        rideMover: 10,
+        lines: ['¡Vamos falta poco!'],
+      },
+    ],
   },
   {
     title: 'Torre de la corona',

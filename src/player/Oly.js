@@ -26,6 +26,7 @@ export class Oly {
       this.sprite = scene.physics.add.sprite(x, y, 'oly-anim', 0);
       this.sprite.setOrigin(0.5, 1);
       const scale = DISPLAY_H / FRAME_H;
+      this.baseScale = scale;
       this.sprite.setScale(scale);
       const bw = 40;
       const bh = 90;
@@ -55,6 +56,8 @@ export class Oly {
     this.jumping = false;
     this.coyote = 0;
     this.invuln = 0;
+    this.stompProtect = 0;
+    this.baseScale = DISPLAY_H / FRAME_H;
     this.facing = 1;
     this.idleMs = 0;
     this.dancing = false;
@@ -67,8 +70,8 @@ export class Oly {
   }
 
   fitDisplay() {
-    const scale = DISPLAY_H / FRAME_H;
-    this.sprite.setScale(scale);
+    this.baseScale = DISPLAY_H / FRAME_H;
+    this.sprite.setScale(this.baseScale);
   }
 
   get x() { return this.sprite.x; }
@@ -125,6 +128,7 @@ export class Oly {
     const onFloor = this.body.blocked.down || this.body.touching.down;
     this.coyote = onFloor ? 80 : Math.max(0, this.coyote - dt);
     this.invuln = Math.max(0, this.invuln - dt);
+    this.stompProtect = Math.max(0, this.stompProtect - dt);
     if (onFloor) this.jumping = false;
 
     let dir = this.touchDir;
@@ -201,8 +205,24 @@ export class Oly {
     this.sprite.setAlpha(flicker ? 0.35 : 1);
   }
 
+  /** Brief grow + no flicker (stomp success, not damage). */
+  celebrateStomp() {
+    this.stompProtect = Math.max(this.stompProtect, 380);
+    const s = this.baseScale || (DISPLAY_H / FRAME_H);
+    this.scene.tweens.killTweensOf(this.sprite);
+    this.sprite.setScale(s);
+    this.scene.tweens.add({
+      targets: this.sprite,
+      scaleX: s * 1.28,
+      scaleY: s * 1.28,
+      duration: 100,
+      yoyo: true,
+      ease: 'Back.out',
+    });
+  }
+
   hurt() {
-    if (this.invuln > 0) return false;
+    if (this.invuln > 0 || this.stompProtect > 0) return false;
     if (this.dancing) this.stopDance();
     this.invuln = 900;
     this.sprite.setVelocityY(-240);

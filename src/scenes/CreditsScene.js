@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { WIDTH, HEIGHT } from '../config.js';
+import { playVoice } from '../audio.js';
 
 export class CreditsScene extends Phaser.Scene {
   constructor() {
@@ -30,7 +31,7 @@ export class CreditsScene extends Phaser.Scene {
       });
     }
 
-    this.sound.play('start', { volume: 0.45 });
+    playVoice('start');
 
     const names = this.add.text(268, 150, 'Tía Ivana y Tío Alfredo', {
       fontFamily: 'Fredoka, Arial',

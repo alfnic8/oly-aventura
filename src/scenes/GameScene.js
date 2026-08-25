@@ -9,9 +9,12 @@ import { isTouchPlay, setTouchPlayMode, refreshGameScale, resetGameShell } from 
 import { mountVirtualStick, mountJumpButton } from '../touchControls.js';
 import { openFaceTune } from '../faceTune.js';
 import { unlockLetterForLevel } from '../olyLetters.js';
+import { Puppy } from '../npc/Puppy.js';
 
 const MAX_HEARTS = 5;
 const STAND_ABOVE_PLATFORM = 4;
+/** Extra life every N points (stars, crystals, stomps, bonuses). */
+const HEART_SCORE_STEP = 5000;
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -24,6 +27,7 @@ export class GameScene extends Phaser.Scene {
     this.scoreStart = this.score;
     this.hearts = data.hearts ?? 3;
     this.tookDamageThisLevel = false;
+    this._gameOverShown = false;
   }
 
   create() {
@@ -46,6 +50,8 @@ export class GameScene extends Phaser.Scene {
     this.spawn = { ...this.level.spawn };
     this.lastSafe = { ...this.level.spawn };
     this.voidHandling = false;
+    this.voidGraceUntil = 0;
+    this.nextHeartAt = Math.floor(this.score / HEART_SCORE_STEP) * HEART_SCORE_STEP + HEART_SCORE_STEP;
 
     this.physics.world.setBounds(0, -80, this.level.worldW, this.level.worldH + 220);
     this.cameras.main.setBounds(0, 0, this.level.worldW, this.level.worldH);
@@ -64,6 +70,15 @@ export class GameScene extends Phaser.Scene {
     this.level.stars.forEach(([x, y]) => this.placeCollect(this.starGroup, x, y, 'star', 0.9));
     this.level.crystals.forEach(([x, y]) => this.placeCollect(this.crystalGroup, x, y, 'crystal', 1));
     this.level.enemies.forEach((e) => this.makeEnemy(e));
+    this.puppies = [];
+    (this.level.npcs || []).forEach((npc) => {
+      if (npc.type !== 'puppy') return;
+      const pup = new Puppy(this, npc);
+      if (npc.rideMover != null) {
+        pup.attachTo(this.movers.getChildren()[npc.rideMover]);
+      }
+      this.puppies.push(pup);
+    });
 
     this.crown = this.physics.add.sprite(this.level.crown.x, this.level.crown.y, 'crown-goal');
     this.crown.body.setAllowGravity(false);
@@ -103,6 +118,8 @@ export class GameScene extends Phaser.Scene {
       this.unbindExitButton();
       this.unbindMobileHud();
       this.destroyTouch();
+      this.puppies?.forEach((p) => p.destroy());
+      this.puppies = [];
       window.removeEventListener('orientationchange', this.onOrient);
       window.removeEventListener('resize', this.onOrient);
       if (this.onCameraResize) this.scale.off('resize', this.onCameraResize);
@@ -179,7 +196,9 @@ export class GameScene extends Phaser.Scene {
     const bat = this.enemies.create(def.x, def.y, 'bat-0');
     bat.play('bat-fly');
     bat.body.setAllowGravity(false);
-    bat.body.setSize(28, 20);
+    /* Hitbox a bit taller/wider so stomps register more reliably */
+    bat.body.setSize(36, 28);
+    bat.body.setOffset(8, 2);
     bat.minX = def.minX;
     bat.maxX = def.maxX;
     bat.speed = def.speed ?? 90;
@@ -389,10 +408,11 @@ export class GameScene extends Phaser.Scene {
     this.scale.on('resize', this.onCameraResize);
   }
 
-  addScore(points, x, y) {
+  addScore(points, x, y, { grantHearts = true } = {}) {
     this.score += points;
     if (this.scoreText) this.scoreText.setText(String(this.score));
     this.syncMobileHud();
+    if (grantHearts) this.checkScoreHearts(x, y);
     if (x == null) return;
     const pop = this.add.text(x, y, `+${points}`, {
       fontFamily: 'Fredoka, Arial',
@@ -406,6 +426,67 @@ export class GameScene extends Phaser.Scene {
       y: y - 42,
       alpha: 0,
       duration: 700,
+      ease: 'Sine.out',
+      onComplete: () => pop.destroy(),
+    });
+  }
+
+  checkScoreHearts(x, y) {
+    let gained = 0;
+    while (this.hearts < MAX_HEARTS && this.score >= this.nextHeartAt) {
+      this.hearts += 1;
+      this.nextHeartAt += HEART_SCORE_STEP;
+      gained += 1;
+    }
+    if (!gained) return;
+    this.refreshHearts();
+    this.sound.play('win', { volume: 0.35 });
+
+    const label = gained > 1
+      ? `¡+${gained} VIDAS!  ${this.score} pts`
+      : `¡VIDA EXTRA!  ${this.score} pts`;
+
+    const banner = this.add.text(WIDTH / 2, HEIGHT * 0.28, label, {
+      fontFamily: '"Press Start 2P", monospace',
+      fontSize: 18,
+      color: '#ffea00',
+      stroke: '#ff006e',
+      strokeThickness: 8,
+      align: 'center',
+      backgroundColor: '#1a0033cc',
+      padding: { x: 16, y: 12 },
+    }).setOrigin(0.5).setDepth(60).setScrollFactor(0).setAlpha(0).setScale(0.6);
+
+    this.tweens.add({
+      targets: banner,
+      alpha: 1,
+      scale: 1,
+      duration: 320,
+      ease: 'Back.out',
+    });
+    this.tweens.add({
+      targets: banner,
+      alpha: 0,
+      y: HEIGHT * 0.22,
+      duration: 700,
+      delay: 1600,
+      ease: 'Sine.in',
+      onComplete: () => banner.destroy(),
+    });
+
+    const pop = this.add.text(WIDTH / 2, HEIGHT * 0.42, gained > 1 ? `+${gained} ♥` : '+1 ♥', {
+      fontFamily: 'Fredoka, Arial',
+      fontSize: 42,
+      color: '#ff6b8a',
+      stroke: '#fff7fb',
+      strokeThickness: 8,
+    }).setOrigin(0.5).setDepth(61).setScrollFactor(0);
+    this.tweens.add({
+      targets: pop,
+      y: HEIGHT * 0.32,
+      scale: 1.35,
+      alpha: 0,
+      duration: 1100,
       ease: 'Sine.out',
       onComplete: () => pop.destroy(),
     });
@@ -446,26 +527,34 @@ export class GameScene extends Phaser.Scene {
     const batBody = bat.body;
     if (!body || !batBody) return false;
 
-    // Pies del personaje vs zona superior del murciélago (más permisivo)
     const feetY = body.bottom;
     const batTop = batBody.top;
     const batMid = batBody.center.y;
-    const fromAbove = feetY <= batMid + 10 || this.oly.y <= bat.y - 2;
-    const falling = body.velocity.y > 20 || body.deltaY() > 1.5;
-    const landingOnHead = feetY <= batTop + 18 && this.oly.y < bat.y + 6;
+    const batBottom = batBody.bottom;
 
-    return (fromAbove && falling) || (landingOnHead && body.velocity.y >= 0);
+    /* Zona amplia encima / cabeza del murciélago */
+    const inHeadZone = feetY >= batTop - 40 && feetY <= batBottom - 2;
+    const fromAbove = feetY <= batMid + 26
+      || body.center.y <= batMid + 10
+      || this.oly.y <= bat.y + 8;
+
+    const falling = body.velocity.y > 5 || body.deltaY() > 0.5;
+    /* Caída lenta o aterrizaje encima (sin exigir mucha velocidad) */
+    const landingOnHead = inHeadZone && fromAbove && body.velocity.y >= -30;
+
+    return (fromAbove && falling) || landingOnHead;
   }
 
   hitEnemy(bat) {
     if (!bat.active || this.finished || bat.getData('stomped')) return;
-    if (this.oly.invuln > 0 && !this.isStomp(bat)) return;
+    const protectedFromHit = this.oly.invuln > 0 || this.oly.stompProtect > 0;
+    if (protectedFromHit && !this.isStomp(bat)) return;
 
     if (this.isStomp(bat)) {
       bat.setData('stomped', true);
       bat.disableBody(true, true);
-      this.oly.sprite.setVelocityY(-320);
-      this.oly.invuln = Math.max(this.oly.invuln, 280);
+      this.oly.sprite.setVelocityY(-340);
+      this.oly.celebrateStomp();
       this.sound.play('stomp', { volume: 0.45 });
       this.addScore(150, bat.x, bat.y);
       this.burst(bat.x, bat.y, 0xc77dff);
@@ -476,17 +565,28 @@ export class GameScene extends Phaser.Scene {
 
   findSafeRespawn(x, refY = this.lastSafe.y) {
     const platforms = [
-      ...this.level.solids.map((s) => ({ x: s.x, y: s.y, w: s.w })),
-      ...this.level.pads.map((p) => ({ x: p.x, y: p.y, w: p.w })),
-      ...this.level.movers.map((m) => ({ x: m.x, y: m.y, w: m.w })),
+      ...this.level.solids.map((s) => ({ x: s.x, y: s.y, w: s.w, top: s.y })),
+      ...this.level.pads.map((p) => ({ x: p.x, y: p.y, w: p.w, top: p.y })),
     ];
+    /* Live mover positions — last gold pad you stood on */
+    this.movers?.children?.iterate((plat) => {
+      if (!plat?.body) return;
+      const w = plat.body.width || plat.displayWidth || 90;
+      platforms.push({
+        x: plat.x - w / 2,
+        y: plat.body.top,
+        w,
+        top: plat.body.top,
+      });
+    });
+
     let best = { ...this.level.spawn };
     let bestScore = Infinity;
     for (const plat of platforms) {
-      if (x < plat.x - 20 || x > plat.x + plat.w + 20) continue;
-      const standY = plat.y - STAND_ABOVE_PLATFORM;
-      const standX = Phaser.Math.Clamp(x, plat.x + 24, plat.x + plat.w - 24);
-      const score = Math.abs(standY - refY) + Math.abs(standX - x) * 0.15;
+      if (x < plat.x - 48 || x > plat.x + plat.w + 48) continue;
+      const standY = plat.top - STAND_ABOVE_PLATFORM;
+      const standX = Phaser.Math.Clamp(x, plat.x + 18, plat.x + plat.w - 18);
+      const score = Math.abs(standY - refY) + Math.abs(standX - x) * 0.1;
       if (score < bestScore) {
         bestScore = score;
         best = { x: standX, y: standY };
@@ -495,11 +595,25 @@ export class GameScene extends Phaser.Scene {
     return best;
   }
 
-  respawnOly(preferredX = this.lastSafe.x) {
-    const safe = this.findSafeRespawn(preferredX, this.lastSafe.y);
+  respawnOly(preferredX = this.lastSafe?.x) {
+    const anchorX = preferredX ?? this.lastSafe?.x ?? this.level.spawn.x;
+    const anchorY = this.lastSafe?.y ?? this.level.spawn.y;
+    const safe = this.findSafeRespawn(anchorX, anchorY);
     this.lastSafe = { ...safe };
+    const body = this.oly.body;
+    if (body?.reset) {
+      body.reset(safe.x, safe.y);
+    } else {
+      this.oly.setPosition(safe.x, safe.y);
+      body?.setVelocity(0, 0);
+    }
     this.oly.setPosition(safe.x, safe.y);
-    this.oly.body.setVelocity(0, 0);
+    body?.setVelocity(0, 0);
+    body?.setAcceleration?.(0, 0);
+    this.oly.wantJump = false;
+    this.oly.jumping = false;
+    this.voidHandling = false;
+    this.voidGraceUntil = this.time.now + 500;
   }
 
   loseHeart() {
@@ -507,27 +621,34 @@ export class GameScene extends Phaser.Scene {
     this.hearts -= 1;
     this.refreshHearts();
     if (this.hearts <= 0) {
-      this.time.delayedCall(200, () => this.restartLevel('¡Uy! Una vez más'));
+      this.time.delayedCall(200, () => this.gameOver());
     } else {
       this.time.delayedCall(200, () => this.respawnOly());
     }
   }
 
   fallIntoVoid() {
-    if (this.voidHandling || this.finished) return;
-    this.voidHandling = true;
-    if (this.oly.invuln > 0) {
+    if (this.finished || !this.oly) return;
+
+    /* During grace after a rescue, keep snapping up instead of re-triggering damage */
+    if (this.time.now < (this.voidGraceUntil || 0)) {
       this.respawnOly();
       return;
     }
-    this.oly.invuln = 900;
-    this.tookDamageThisLevel = true;
-    this.hearts -= 1;
-    this.refreshHearts();
-    if (this.hearts <= 0) {
-      this.restartLevel('¡Uy! Una vez más');
-      return;
+    if (this.voidHandling) return;
+    this.voidHandling = true;
+
+    if (this.oly.invuln <= 0) {
+      this.oly.invuln = 1000;
+      this.tookDamageThisLevel = true;
+      this.hearts -= 1;
+      this.refreshHearts();
+      if (this.hearts <= 0) {
+        this.gameOver();
+        return;
+      }
     }
+
     this.respawnOly();
   }
 
@@ -540,19 +661,15 @@ export class GameScene extends Phaser.Scene {
     }, 'Seguir');
   }
 
-  winLevel() {
-    if (this.finished) return;
+  gameOver() {
+    if (this.finished && this._gameOverShown) return;
     this.finished = true;
+    this._gameOverShown = true;
     this.physics.pause();
-    this.sound.play('win', { volume: 0.5 });
+    this.unbindExitButton();
+    this.unbindMobileHud();
+    this.destroyTouch();
 
-    let heartGain = 1;
-    if (!this.tookDamageThisLevel) heartGain += 1;
-    this.hearts = Math.min(MAX_HEARTS, this.hearts + heartGain);
-
-    const bonus = 500 + this.hearts * 100;
-    this.addScore(bonus);
-    const last = this.levelIndex >= LEVELS.length - 1;
     try {
       const best = Number(localStorage.getItem('oly-best-score') || 0);
       if (this.score > best) localStorage.setItem('oly-best-score', String(this.score));
@@ -560,19 +677,58 @@ export class GameScene extends Phaser.Scene {
       /* ignore */
     }
 
-    const { index, unlocked } = unlockLetterForLevel(this.levelIndex);
+    this.showBanner('GAME OVER', () => {
+      this.hideBanner();
+      resetGameShell(this.game);
+      this.scene.start('menu');
+    }, 'Menú principal', { gameOver: true });
+  }
+
+  winLevel() {
+    if (this.finished) return;
+    this.finished = true;
+    this.physics.pause();
+    this.sound.play('win', { volume: 0.5 });
+
+    const last = this.levelIndex >= LEVELS.length - 1;
+    let bonus = 500;
+    if (!this.tookDamageThisLevel) bonus += 300;
+    /* Última corona: suma puntos pero no da vida (el juego termina) */
+    const heartsBefore = this.hearts;
+    this.addScore(bonus, null, null, { grantHearts: !last });
+    const gainedLifeFromCrown = !last && this.hearts > heartsBefore;
+
+    try {
+      const best = Number(localStorage.getItem('oly-best-score') || 0);
+      if (this.score > best) localStorage.setItem('oly-best-score', String(this.score));
+    } catch {
+      /* ignore */
+    }
+
+    const { index, unlocked, justCompleted } = unlockLetterForLevel(this.levelIndex);
     this.unbindExitButton();
     this.unbindMobileHud();
     this.destroyTouch();
 
-    this.scene.start('letterReveal', {
-      revealIndex: index,
-      unlocked,
-      preview: false,
-      continueData: last
-        ? { toMenu: true }
-        : { level: this.levelIndex + 1, score: this.score, hearts: this.hearts },
-    });
+    const goReveal = () => {
+      this.scene.start('letterReveal', {
+        revealIndex: index,
+        unlocked,
+        justCompleted,
+        finale: last,
+        preview: false,
+        score: this.score,
+        continueData: last
+          ? { toMenu: true, score: this.score }
+          : { level: this.levelIndex + 1, score: this.score, hearts: this.hearts },
+      });
+    };
+
+    if (gainedLifeFromCrown) {
+      this.time.delayedCall(2200, goReveal);
+    } else {
+      goReveal();
+    }
   }
 
   showBanner(title, onOk, okLabel = 'Seguir', options = {}) {
@@ -587,6 +743,7 @@ export class GameScene extends Phaser.Scene {
     }
     this.hideBanner();
     titleEl.textContent = title;
+    el.classList.toggle('game-over', options.gameOver === true);
     if (scoreEl) scoreEl.textContent = `Puntos: ${this.score}`;
     btn.textContent = okLabel;
     el.classList.add('open');
@@ -623,7 +780,10 @@ export class GameScene extends Phaser.Scene {
     this.onBannerQuitClick = null;
     this.bannerOk = null;
     this.bannerQuit = null;
-    if (el) el.classList.remove('open');
+    if (el) {
+      el.classList.remove('open');
+      el.classList.remove('game-over');
+    }
   }
 
   isPhonePortrait() {
@@ -675,6 +835,7 @@ export class GameScene extends Phaser.Scene {
     this.oly.update(t, dt);
     this.updateMovers(dt);
     this.carryOlyOnMovers();
+    this.puppies?.forEach((p) => p.update(t, dt, this.oly.x));
 
     this.enemies.children.iterate((bat) => {
       if (!bat || !bat.active) return;
@@ -683,9 +844,11 @@ export class GameScene extends Phaser.Scene {
       if (bat.x < bat.minX) { bat.dir = 1; bat.scaleX = 1; }
     });
 
-    if (this.oly.body.blocked.down || this.oly.body.touching.down) {
+    if ((this.oly.body.blocked.down || this.oly.body.touching.down)
+      && this.oly.y < this.level.worldH) {
       this.voidHandling = false;
-      this.lastSafe = this.findSafeRespawn(this.oly.x, this.oly.y);
+      /* Exact foothold — works for moving pads */
+      this.lastSafe = { x: this.oly.x, y: this.oly.y };
     }
     if (this.oly.y > this.level.worldH + 20) {
       this.fallIntoVoid();

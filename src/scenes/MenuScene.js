@@ -2,8 +2,8 @@ import Phaser from 'phaser';
 import { WIDTH, HEIGHT } from '../config.js';
 import { LEVELS } from '../levels.js';
 import { enterLandscapePlay, isTouchPlay, setTouchPlayMode, resetGameShell, refreshGameScale } from '../mobile.js';
-import { unlockAudio, startMusic, bindAutoMusic } from '../audio.js';
-import { OLY_WORD } from '../olyLetters.js';
+import { unlockAudio, startMusic, bindAutoMusic, playVoice, stopVoice } from '../audio.js';
+import { OLY_WORD, resetLetters } from '../olyLetters.js';
 
 const SECRET_HOLD_MS = 900;
 
@@ -42,6 +42,7 @@ export class MenuScene extends Phaser.Scene {
     this.portada.classList.add('open');
     this.started = false;
     this.secretTimer = null;
+    this.refreshHighScore();
 
     this.unbindMenuDom();
 
@@ -53,6 +54,7 @@ export class MenuScene extends Phaser.Scene {
     const jugarSig = resetSignal('jugar');
     this.btn.addEventListener('click', this.onJugar, { signal: jugarSig });
     this.btn.addEventListener('touchstart', this.onJugarTouch, { passive: false, signal: jugarSig });
+    this.btn.addEventListener('pointerdown', () => startMusic(this, { menu: true }), { signal: jugarSig });
 
     this.buildLevelPick();
     this.buildLetterPreview();
@@ -72,13 +74,30 @@ export class MenuScene extends Phaser.Scene {
     this.events.once('shutdown', () => this.hidePortada());
 
     bindAutoMusic(this);
+    this.saidHello = false;
     this.onAudioTap = (ev) => {
       if (ev.target?.closest?.('#btn-jugar, [data-mute-btn], #btn-secret-levels, #level-pick')) return;
       startMusic(this, { menu: true });
+      if (!this.saidHello && !this.started) {
+        this.saidHello = true;
+        playVoice('hello');
+      }
     };
     const audioSig = resetSignal('audio');
     this.portada.addEventListener('touchstart', this.onAudioTap, { passive: true, signal: audioSig });
     this.portada.addEventListener('pointerdown', this.onAudioTap, { signal: audioSig });
+  }
+
+  refreshHighScore() {
+    const el = document.getElementById('portada-highscore');
+    if (!el) return;
+    let best = 0;
+    try {
+      best = Number(localStorage.getItem('oly-best-score') || 0) || 0;
+    } catch {
+      best = 0;
+    }
+    el.innerHTML = `HIGH SCORE <span>${best}</span>`;
   }
 
   unbindMenuDom() {
@@ -119,17 +138,29 @@ export class MenuScene extends Phaser.Scene {
     allBtn.textContent = 'Ver OLY completa';
     allBtn.addEventListener('click', () => this.previewLetter(2, [true, true, true]));
     this.letterPreviewList.appendChild(allBtn);
+
+    const resetBtn = document.createElement('button');
+    resetBtn.type = 'button';
+    resetBtn.textContent = 'Reiniciar letras';
+    resetBtn.addEventListener('click', () => {
+      resetLetters();
+      resetBtn.textContent = 'Letras reiniciadas ✓';
+      setTimeout(() => { resetBtn.textContent = 'Reiniciar letras'; }, 1200);
+    });
+    this.letterPreviewList.appendChild(resetBtn);
   }
 
   previewLetter(index, unlockedOverride = null) {
     if (this.started) return;
     this.started = true;
+    /* Preview: show letters up to this one (or full override for OLY completa). */
     const unlocked = unlockedOverride ?? OLY_WORD.map((_, i) => i <= index);
     this.closeLevelPick();
     this.hidePortada();
     this.scene.start('letterReveal', {
       revealIndex: index,
       unlocked,
+      justCompleted: unlocked.every(Boolean),
       preview: true,
     });
   }
@@ -241,6 +272,8 @@ export class MenuScene extends Phaser.Scene {
     unlockAudio(this);
     startMusic(this, { menu: false });
     this.hidePortada();
+    stopVoice();
+    playVoice('start');
     this.sound.play('click', { volume: 0.35 });
 
     const begin = () => {

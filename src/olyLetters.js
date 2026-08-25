@@ -1,5 +1,6 @@
 export const OLY_WORD = ['O', 'L', 'Y'];
-const STORAGE_KEY = 'oly-letters-unlocked';
+/* v2: wipe old test unlocks that showed L/Y early */
+const STORAGE_KEY = 'oly-letters-unlocked-v2';
 
 export function getUnlockedLetters() {
   try {
@@ -24,9 +25,11 @@ export function setUnlockedLetters(flags) {
 export function unlockLetterForLevel(levelIndex) {
   const flags = getUnlockedLetters();
   const i = Math.max(0, Math.min(OLY_WORD.length - 1, levelIndex));
+  const wasComplete = flags.every(Boolean);
   flags[i] = true;
   setUnlockedLetters(flags);
-  return { letter: OLY_WORD[i], index: i, unlocked: flags };
+  const justCompleted = !wasComplete && flags.every(Boolean);
+  return { letter: OLY_WORD[i], index: i, unlocked: flags, justCompleted };
 }
 
 export function resetLetters() {

@@ -11,8 +11,11 @@ export class LetterRevealScene extends Phaser.Scene {
   init(data) {
     this.revealIndex = data.revealIndex ?? 0;
     this.unlocked = data.unlocked ?? getUnlockedLetters();
+    this.justCompleted = data.justCompleted === true;
+    this.finale = data.finale === true || data.continueData?.toMenu === true;
     this.preview = data.preview === true;
     this.continueData = data.continueData ?? null;
+    this.score = Number(data.score ?? data.continueData?.score ?? 0) || 0;
     this.done = false;
   }
 
@@ -24,32 +27,54 @@ export class LetterRevealScene extends Phaser.Scene {
     g.fillGradientStyle(0x0a0014, 0x0a0014, 0x2a1040, 0x1a0033, 1);
     g.fillRect(0, 0, WIDTH, HEIGHT);
 
-    this.titleText = this.add.text(WIDTH / 2, 48, this.preview ? 'VISTA PREVIA' : '¡NUEVA LETRA!', {
-      fontFamily: '"Press Start 2P", monospace',
-      fontSize: 16,
-      color: '#ffea00',
-    }).setOrigin(0.5).setDepth(2);
-
     const letter = OLY_WORD[this.revealIndex] ?? 'O';
-    this.subText = this.add.text(WIDTH / 2, 88, `Conseguiste la "${letter}"`, {
-      fontFamily: '"Press Start 2P", monospace',
-      fontSize: 12,
-      color: '#00f5ff',
-    }).setOrigin(0.5).setDepth(2);
+    /* Finale whenever last level ends, or first time the word completes */
+    const celebrate = this.preview
+      ? this.unlocked.every(Boolean)
+      : (this.justCompleted || this.finale);
 
-    this.wordRoot = this.add.container(WIDTH / 2, HEIGHT * 0.48).setDepth(3);
+    this.titleText = this.add.text(
+      WIDTH / 2,
+      48,
+      this.preview ? 'VISTA PREVIA' : (celebrate ? '¡OLY COMPLETA!' : '¡NUEVA LETRA!'),
+      {
+        fontFamily: '"Press Start 2P", monospace',
+        fontSize: 16,
+        color: '#ffea00',
+      },
+    ).setOrigin(0.5).setDepth(2);
+
+    this.subText = this.add.text(
+      WIDTH / 2,
+      88,
+      celebrate ? '¡Lo lograste!' : `Conseguiste la "${letter}"`,
+      {
+        fontFamily: '"Press Start 2P", monospace',
+        fontSize: 12,
+        color: celebrate ? '#ffea00' : '#00f5ff',
+      },
+    ).setOrigin(0.5).setDepth(2);
+
+    this.wordRoot = this.add.container(WIDTH / 2, HEIGHT * 0.42).setDepth(3);
     this.slots = [];
     const gap = 140;
 
     OLY_WORD.forEach((ch, i) => {
       const x = (i - 1) * gap;
-      const slot = this.add.text(x, 0, ch, {
+      const isNew = i === this.revealIndex;
+      const known = celebrate
+        ? !isNew
+        : (!isNew && i < this.revealIndex && this.unlocked[i]);
+      const locked = !isNew && !known;
+
+      const slotGlyph = locked ? '?' : ch;
+      const slot = this.add.text(x, 0, slotGlyph, {
         fontFamily: '"Press Start 2P", monospace',
-        fontSize: 96,
+        fontSize: locked ? 72 : 96,
         color: '#2a1040',
         stroke: '#5b2b16',
         strokeThickness: 6,
-      }).setOrigin(0.5).setAlpha(0.45);
+      }).setOrigin(0.5).setAlpha(locked ? 0.55 : 0.35);
 
       const filled = this.add.text(x, 0, ch, {
         fontFamily: '"Press Start 2P", monospace',
@@ -59,10 +84,9 @@ export class LetterRevealScene extends Phaser.Scene {
         strokeThickness: 10,
       }).setOrigin(0.5);
 
-      const already = this.unlocked[i] && i !== this.revealIndex;
-      const isNew = i === this.revealIndex;
-      if (already) {
+      if (known) {
         filled.setAlpha(1).setScale(1);
+        slot.setVisible(false);
       } else if (isNew) {
         filled.setAlpha(0).setScale(2.4).setY(-120);
       } else {
@@ -73,7 +97,6 @@ export class LetterRevealScene extends Phaser.Scene {
       this.slots.push({ slot, filled, x, ch });
     });
 
-    const complete = this.unlocked.every(Boolean);
     const neu = this.slots[this.revealIndex];
     if (neu) {
       this.tweens.add({
@@ -84,6 +107,7 @@ export class LetterRevealScene extends Phaser.Scene {
         duration: 700,
         ease: 'Back.easeOut',
         onComplete: () => {
+          neu.slot.setVisible(false);
           this.tweens.add({
             targets: neu.filled,
             scale: { from: 1.12, to: 1 },
@@ -91,24 +115,24 @@ export class LetterRevealScene extends Phaser.Scene {
             yoyo: true,
             repeat: 1,
           });
-          this.sparkle(WIDTH / 2 + neu.x, HEIGHT * 0.48);
-          if (complete) this.playCompleteZoom();
+          this.sparkle(WIDTH / 2 + neu.x, HEIGHT * 0.42);
+          if (celebrate) this.playCompleteZoom();
         },
       });
-    } else if (complete) {
+    } else if (celebrate) {
       this.playCompleteZoom();
     }
 
     const tip = this.preview
       ? 'Tocá para cerrar'
       : 'Tocá para continuar';
-    this.tipText = this.add.text(WIDTH / 2, HEIGHT - 42, tip, {
+    this.tipText = this.add.text(WIDTH / 2, HEIGHT - 18, tip, {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: 10,
       color: '#fff7fb',
-    }).setOrigin(0.5).setDepth(4).setAlpha(0.85);
+    }).setOrigin(0.5).setDepth(8).setAlpha(0.85);
 
-    this.time.delayedCall(complete ? 1600 : 500, () => {
+    this.time.delayedCall(celebrate ? 2200 : 500, () => {
       this.input.once('pointerdown', () => this.finish());
       this.input.keyboard?.once('keydown-SPACE', () => this.finish());
       this.input.keyboard?.once('keydown-ENTER', () => this.finish());
@@ -120,20 +144,20 @@ export class LetterRevealScene extends Phaser.Scene {
     this.subText.setText('¡Lo lograste!');
     this.subText.setColor('#ffea00');
 
-    // Empieza cerca de la palabra y hace zoom out para celebrar
-    this.cameras.main.setZoom(1.55);
-    this.cameras.main.centerOn(WIDTH / 2, HEIGHT * 0.48);
+    this.cameras.main.setZoom(1.35);
+    this.cameras.main.centerOn(WIDTH / 2, HEIGHT * 0.42);
 
     this.tweens.add({
       targets: this.cameras.main,
       zoom: 1,
-      duration: 1100,
+      duration: 900,
       ease: 'Sine.out',
       onUpdate: () => {
-        this.cameras.main.centerOn(WIDTH / 2, HEIGHT * 0.48);
+        this.cameras.main.centerOn(WIDTH / 2, HEIGHT * 0.42);
       },
       onComplete: () => {
         this.cameras.main.centerOn(WIDTH / 2, HEIGHT / 2);
+        this.spawnCelebratePuppy();
       },
     });
 
@@ -146,8 +170,96 @@ export class LetterRevealScene extends Phaser.Scene {
     });
 
     this.slots.forEach((s, i) => {
-      this.time.delayedCall(80 * i, () => this.sparkle(WIDTH / 2 + s.x, HEIGHT * 0.48));
+      this.time.delayedCall(80 * i, () => this.sparkle(WIDTH / 2 + s.x, HEIGHT * 0.42));
     });
+  }
+
+  spawnCelebratePuppy() {
+    let best = this.score;
+    try {
+      const prev = Number(localStorage.getItem('oly-best-score') || 0);
+      if (this.score > prev) {
+        localStorage.setItem('oly-best-score', String(this.score));
+        best = this.score;
+      } else {
+        best = Math.max(prev, this.score);
+      }
+    } catch {
+      best = this.score;
+    }
+    const isRecord = this.score > 0 && this.score >= best;
+
+    /* Fixed to camera so zoom never hides Negrito / score */
+    if (this.textures.exists('puppy-sit')) {
+      const pup = this.add.image(WIDTH / 2, HEIGHT * 0.78, 'puppy-sit')
+        .setOrigin(0.5, 1)
+        .setDepth(20)
+        .setScrollFactor(0)
+        .setAlpha(0)
+        .setScale(0.4);
+      this.tweens.add({
+        targets: pup,
+        alpha: 1,
+        y: HEIGHT * 0.76,
+        duration: 500,
+        ease: 'Back.out',
+      });
+      this.tweens.add({
+        targets: pup,
+        scaleX: { from: 0.4, to: 0.44 },
+        scaleY: { from: 0.4, to: 0.37 },
+        duration: 360,
+        yoyo: true,
+        repeat: 3,
+        delay: 400,
+        ease: 'Sine.inOut',
+      });
+    }
+
+    const bark = this.add.text(WIDTH / 2, HEIGHT * 0.52, '¡Bien hecho, lo lograste!', {
+      fontFamily: 'Fredoka, Arial',
+      fontSize: 24,
+      color: '#ffea00',
+      stroke: '#5b2b16',
+      strokeThickness: 6,
+      align: 'center',
+    }).setOrigin(0.5).setDepth(21).setScrollFactor(0).setAlpha(0);
+    this.tweens.add({
+      targets: bark,
+      alpha: 1,
+      duration: 400,
+      delay: 200,
+      yoyo: true,
+      hold: 1400,
+    });
+
+    const scoreLine = this.add.text(
+      WIDTH / 2,
+      HEIGHT * 0.88,
+      isRecord
+        ? `Puntos: ${this.score}   ¡NUEVO RÉCORD!`
+        : `Puntos: ${this.score}   Récord: ${best}`,
+      {
+        fontFamily: '"Press Start 2P", monospace',
+        fontSize: 12,
+        color: isRecord ? '#ffea00' : '#fff7fb',
+        stroke: '#5b2b16',
+        strokeThickness: 5,
+        align: 'center',
+      },
+    ).setOrigin(0.5).setDepth(21).setScrollFactor(0).setAlpha(0);
+    this.tweens.add({
+      targets: scoreLine,
+      alpha: 1,
+      duration: 400,
+      delay: 300,
+    });
+
+    try {
+      this.sound.play('bark', { volume: 0.6 });
+    } catch {
+      /* ignore */
+    }
   }
 
   sparkle(x, y) {
