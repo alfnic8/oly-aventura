@@ -66,9 +66,11 @@ export function setupPwaInstall() {
 
 export function registerPwaServiceWorker() {
   import('virtual:pwa-register').then(({ registerSW }) => {
-    registerSW({
+    const updateSW = registerSW({
       immediate: true,
-      onNeedRefresh() {},
+      onNeedRefresh() {
+        updateSW?.(true);
+      },
       onOfflineReady() {},
     });
   }).catch(() => {});

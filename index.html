@@ -9,7 +9,9 @@
     <meta name="apple-mobile-web-app-title" content="Oly Aventura" />
     <meta name="theme-color" content="#0a0014" />
     <meta name="description" content="El juego de Olympia en el castillo de hadas" />
-    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=3" />
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=3" />
+    <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png?v=3" />
     <title>El juego de Olympia</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -38,10 +40,15 @@
       }
       #game {
         width: 100%;
+        height: 100%;
         height: 100dvh;
         max-height: none;
+        overflow: hidden;
+        background: #0a0014;
       }
-      canvas { display: block; }
+      #game canvas {
+        display: block;
+      }
 
       /* —— Portada arcade 80s —— */
       #portada, #banner {
@@ -862,7 +869,7 @@
         </div>
         <div class="portada-photo-frame">
           <div class="portada-photo-pixel" aria-hidden="true">
-            <img src="assets/oly-portada.png" alt="Olympia" width="920" height="1024" />
+            <img src="assets/oly-portada-pixel.png?v=3" alt="Olympia" width="920" height="1024" />
           </div>
           <div class="portada-photo-scan" aria-hidden="true"></div>
           <div class="portada-photo-glow" aria-hidden="true"></div>

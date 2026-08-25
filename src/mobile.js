@@ -1,3 +1,5 @@
+import Phaser from 'phaser';
+
 export function isTouchPlay() {
   const coarse = window.matchMedia('(pointer: coarse)').matches;
   const noHover = window.matchMedia('(hover: none)').matches;
@@ -18,6 +20,7 @@ export function setTouchPlayMode(active) {
   if (!active) {
     document.getElementById('touch')?.classList.remove('open');
   }
+  if (window.__olyGame) applyMobileScaleMode(window.__olyGame);
 }
 
 /** Clear play chrome and restore full #game size (menu / between sessions). */
@@ -29,12 +32,23 @@ export function resetGameShell(game) {
   refreshGameScale(game);
 }
 
+/** On touch devices, cover the whole #game area (no letterboxing). */
+export function applyMobileScaleMode(game) {
+  const scale = game?.scale;
+  if (!scale) return;
+  const next = isTouchPlay() ? Phaser.Scale.ENVELOP : Phaser.Scale.FIT;
+  if (scale.scaleMode !== next) {
+    scale.scaleMode = next;
+  }
+}
+
 let scaleRefreshGen = 0;
 
 /** Re-measure #game after touch bar / fullscreen / orientation changes. */
 export function refreshGameScale(game) {
   const scale = game?.scale;
   if (!scale) return;
+  applyMobileScaleMode(game);
   const gen = ++scaleRefreshGen;
   const parent = scale.parent;
   if (parent) void parent.offsetHeight;

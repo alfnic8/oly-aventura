@@ -277,7 +277,7 @@ export class MenuScene extends Phaser.Scene {
     this.sound.play('click', { volume: 0.35 });
 
     const begin = () => {
-      /* Reserve touch-bar height before Phaser lays out FIT scale. */
+      /* Reserve touch-bar height before Phaser lays out ENVELOP scale. */
       if (isTouchPlay()) setTouchPlayMode(true);
       refreshGameScale(this.game);
       this.scene.start('game', { level, score: 0, hearts: 3 });
