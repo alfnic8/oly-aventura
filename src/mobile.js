@@ -8,7 +8,7 @@ export function isTouchPlay() {
   return (coarse && noHover) || (touchPoints && noHover);
 }
 
-export const TOUCH_BAR_PX = 124;
+export const TOUCH_BAR_PX = 118;
 
 export function getTouchBarHeight() {
   const touch = document.getElementById('touch');
@@ -36,7 +36,7 @@ export function resetGameShell(game) {
 
 /**
  * Always FIT so the full 960×540 world stays visible (no cropped character).
- * On touch, #game is sized above the control bar so FIT can use the full height.
+ * Touch uses a full-screen #game; controls overlay on top.
  */
 export function applyMobileScaleMode(game) {
   const scale = game?.scale;
