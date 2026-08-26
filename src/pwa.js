@@ -64,14 +64,28 @@ export function setupPwaInstall() {
   }
 }
 
+/**
+ * Register the PWA worker without forcing a mid-session reload.
+ * Updates apply the next time the user opens the app (cold start).
+ */
 export function registerPwaServiceWorker() {
-  import('virtual:pwa-register').then(({ registerSW }) => {
-    const updateSW = registerSW({
-      immediate: true,
-      onNeedRefresh() {
-        updateSW?.(true);
-      },
-      onOfflineReady() {},
-    });
-  }).catch(() => {});
+  /* Defer so Boot → Menu can settle before the SW finishes installing */
+  const start = () => {
+    import('virtual:pwa-register').then(({ registerSW }) => {
+      registerSW({
+        immediate: true,
+        onNeedRefresh() {
+          /* Intentionally empty: do NOT call updateSW(true) — that reloads
+             the page right after the portada appears on mobile. */
+        },
+        onOfflineReady() {},
+      });
+    }).catch(() => {});
+  };
+
+  if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+    window.requestIdleCallback(start, { timeout: 8000 });
+  } else {
+    setTimeout(start, 2500);
+  }
 }

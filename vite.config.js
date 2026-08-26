@@ -10,14 +10,14 @@ export default defineConfig({
   },
   plugins: [
     VitePWA({
-      registerType: 'autoUpdate',
+      /* prompt = no auto page reload when a new SW is ready */
+      registerType: 'prompt',
       includeAssets: ['assets/**/*', 'icons/**/*'],
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,jpg,jpeg,svg,mp3,wav,woff2}'],
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
         cleanupOutdatedCaches: true,
-        clientsClaim: true,
-        skipWaiting: true,
+        /* Do not skipWaiting/clientsClaim — avoids controllerchange reload mid-menu */
       },
       manifest: {
         name: 'Oly Aventura',
