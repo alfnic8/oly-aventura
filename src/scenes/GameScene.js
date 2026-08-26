@@ -463,55 +463,6 @@ export class GameScene extends Phaser.Scene {
     this.refreshHearts();
     this.sound.play('win', { volume: 0.45 });
     this.showLifeToast(gained);
-
-    const label = gained > 1
-      ? `¡+${gained} VIDAS!  ${this.score} pts`
-      : `¡VIDA EXTRA!  ${this.score} pts`;
-
-    const banner = this.add.text(WIDTH / 2, HEIGHT * 0.28, label, {
-      fontFamily: '"Press Start 2P", monospace',
-      fontSize: 18,
-      color: '#ffea00',
-      stroke: '#ff006e',
-      strokeThickness: 8,
-      align: 'center',
-      backgroundColor: '#1a0033cc',
-      padding: { x: 16, y: 12 },
-    }).setOrigin(0.5).setDepth(60).setScrollFactor(0).setAlpha(0).setScale(0.6);
-
-    this.tweens.add({
-      targets: banner,
-      alpha: 1,
-      scale: 1,
-      duration: 320,
-      ease: 'Back.out',
-    });
-    this.tweens.add({
-      targets: banner,
-      alpha: 0,
-      y: HEIGHT * 0.22,
-      duration: 700,
-      delay: 1600,
-      ease: 'Sine.in',
-      onComplete: () => banner.destroy(),
-    });
-
-    const pop = this.add.text(WIDTH / 2, HEIGHT * 0.42, gained > 1 ? `+${gained} ♥` : '+1 ♥', {
-      fontFamily: 'Fredoka, Arial',
-      fontSize: 42,
-      color: '#ff6b8a',
-      stroke: '#fff7fb',
-      strokeThickness: 8,
-    }).setOrigin(0.5).setDepth(61).setScrollFactor(0);
-    this.tweens.add({
-      targets: pop,
-      y: HEIGHT * 0.32,
-      scale: 1.35,
-      alpha: 0,
-      duration: 1100,
-      ease: 'Sine.out',
-      onComplete: () => pop.destroy(),
-    });
   }
 
   showLifeToast(gained = 1) {
