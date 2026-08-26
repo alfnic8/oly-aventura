@@ -87,14 +87,19 @@ export function unlockAudio(scene) {
   const ctx = scene?.sound?.context;
   if (ctx && ctx.state === 'suspended') ctx.resume().catch(() => {});
 
+  /* Already unlocked — never pause/reset the playing BGM on later gestures */
+  if (bgmUnlocked) return Promise.resolve();
+
   const unlockEl = (el) => {
     if (!el) return Promise.resolve();
     const prevMuted = el.muted;
+    const prevTime = el.currentTime || 0;
     el.muted = true;
     return el.play()
       .then(() => {
         el.pause();
-        el.currentTime = 0;
+        /* Keep position if something was already buffered; only zero cold starts */
+        el.currentTime = prevTime > 0.05 ? prevTime : 0;
       })
       .catch(() => {})
       .finally(() => {
@@ -128,6 +133,8 @@ export function playBgm(scene, { menu = false } = {}) {
     if (musicMuted) return;
     el.muted = false;
     el.volume = vol;
+    /* Already playing — only adjust volume, don't restart */
+    if (!el.paused && !el.ended) return;
     const p = el.play();
     if (p && typeof p.then === 'function') {
       p.then(() => { bgmUnlocked = true; }).catch(() => {
@@ -174,10 +181,12 @@ export function bindAutoMusic(scene) {
   const kick = () => {
     if (musicMuted) return;
     const el = getBgmEl();
+    /* While music is already playing, ignore control taps (stick/jump/etc.) */
+    if (bgmUnlocked && el && !el.paused) return;
     unlockAudio(scene).then(() => {
+      if (!el.paused) return;
       playBgm(scene, { menu: true });
     });
-    /* If already unlocked, play immediately (returning to menu, etc.) */
     if (bgmUnlocked && el.paused) {
       playBgm(scene, { menu: true });
     }

@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { WIDTH, HEIGHT } from '../config.js';
 import { LEVELS } from '../levels.js';
 import { Oly } from '../player/Oly.js';
-import { startMusic, bindAutoMusic, toggleMusicMute, isMusicMuted } from '../audio.js';
+import { startMusic, toggleMusicMute, isMusicMuted } from '../audio.js';
 import { buildFaceTexture } from '../faceFromPhoto.js';
 import { loadFaceConfig } from '../faceConfig.js';
 import { isTouchPlay, setTouchPlayMode, refreshGameScale, resetGameShell } from '../mobile.js';
@@ -47,8 +47,13 @@ export class GameScene extends Phaser.Scene {
     this.heartsAtLevelStart = this.hearts;
     this.paused = false;
     this.finished = false;
-    this.spawn = { ...this.level.spawn };
-    this.lastSafe = { ...this.level.spawn };
+    /* On mobile, start further right so Oly isn't behind the stick */
+    const spawnPadX = isTouchPlay() ? 120 : 0;
+    this.spawn = {
+      x: this.level.spawn.x + spawnPadX,
+      y: this.level.spawn.y,
+    };
+    this.lastSafe = { ...this.spawn };
     this.voidHandling = false;
     this.voidGraceUntil = 0;
     this.nextHeartAt = Math.floor(this.score / HEART_SCORE_STEP) * HEART_SCORE_STEP + HEART_SCORE_STEP;
@@ -93,11 +98,11 @@ export class GameScene extends Phaser.Scene {
     }
     this.tweens.add({ targets: this.crown, y: this.crown.y - 10, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
 
-    this.oly = new Oly(this, this.level.spawn.x, this.level.spawn.y);
+    this.oly = new Oly(this, this.spawn.x, this.spawn.y);
     this.cameras.main.startFollow(this.oly.sprite, true, 0.12, 0.12);
     this.cameras.main.setDeadzone(80, 60);
-    /* Raise framing so Oly sits above the overlaid touch controls */
-    if (isTouchPlay()) this.cameras.main.setFollowOffset(0, -48);
+    /* Raise + shift right so Oly sits clear of overlaid touch controls */
+    if (isTouchPlay()) this.cameras.main.setFollowOffset(96, -48);
     this.input.keyboard.addCapture('SPACE,UP,LEFT,RIGHT');
 
     this.physics.add.collider(this.oly.sprite, this.solids);
@@ -111,7 +116,6 @@ export class GameScene extends Phaser.Scene {
     this.bindExitButton();
     this.buildHud();
     this.buildTouch();
-    bindAutoMusic(this);
     startMusic(this);
     this.input.keyboard.on('keydown-ESC', () => this.togglePause());
     this.input.keyboard.on('keydown-P', () => this.togglePause());
@@ -419,7 +423,7 @@ export class GameScene extends Phaser.Scene {
     if (this.onCameraResize) this.scale.off('resize', this.onCameraResize);
     this.onCameraResize = () => {
       cam.setViewport(0, 0, WIDTH, HEIGHT);
-      cam.setFollowOffset(0, -48);
+      cam.setFollowOffset(96, -48);
     };
     this.onCameraResize();
     this.scale.on('resize', this.onCameraResize);
