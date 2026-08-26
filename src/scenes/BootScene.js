@@ -9,7 +9,7 @@ export class BootScene extends Phaser.Scene {
   }
 
   preload() {
-    this.load.image('oly-portada', 'assets/oly-portada-pixel.png?v=3');
+    this.load.image('oly-portada', 'assets/oly-portada-pixel.jpg?v=4');
     this.load.image('oly-face-photo-src', 'assets/oly-face-photo.png');
     this.load.spritesheet('oly-anim', 'assets/oly-anim.png', {
       frameWidth: 96,

@@ -2,7 +2,9 @@ from PIL import Image
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1] / "public"
-src = root / "assets" / "oly-portada.png"
+src = root / "assets" / "oly-portada-pixel.jpg"
+if not src.exists():
+    src = root / "assets" / "oly-portada.jpg"
 img = Image.open(src).convert("RGBA")
 w, h = img.size
 print("portada", w, h)
@@ -26,7 +28,3 @@ def save_icon(size, name):
 save_icon(192, "icon-192.png")
 save_icon(512, "icon-512.png")
 save_icon(180, "apple-touch-icon.png")
-
-pixel = root / "assets" / "oly-portada-pixel.png"
-img.save(pixel, "PNG")
-print("wrote", pixel, pixel.stat().st_size)

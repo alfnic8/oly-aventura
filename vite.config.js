@@ -13,7 +13,7 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['assets/**/*', 'icons/**/*'],
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,mp3,wav,woff2}'],
+        globPatterns: ['**/*.{js,css,html,ico,png,jpg,jpeg,svg,mp3,wav,woff2}'],
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
         cleanupOutdatedCaches: true,
         clientsClaim: true,
