@@ -17,6 +17,8 @@ const STAND_ABOVE_PLATFORM = 4;
 const HEART_SCORE_STEP = 5000;
 /** Bonus per remaining heart when finishing the game (last level). */
 const HEART_SURVIVAL_BONUS = 400;
+const LEVEL_COMPLETE_BONUS = 500;
+const NO_DAMAGE_BONUS = 300;
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -677,45 +679,139 @@ export class GameScene extends Phaser.Scene {
     this.sound.play('win', { volume: 0.5 });
 
     const last = this.levelIndex >= LEVELS.length - 1;
-    let bonus = 500;
-    if (!this.tookDamageThisLevel) bonus += 300;
-    if (last) bonus += this.hearts * HEART_SURVIVAL_BONUS;
-    /* Última corona: suma puntos pero no da vida (el juego termina) */
-    const heartsBefore = this.hearts;
-    this.addScore(bonus, null, null, { grantHearts: !last });
-    const gainedLifeFromCrown = !last && this.hearts > heartsBefore;
-
-    try {
-      const best = Number(localStorage.getItem('oly-best-score') || 0);
-      if (this.score > best) localStorage.setItem('oly-best-score', String(this.score));
-    } catch {
-      /* ignore */
+    const bonuses = [{ label: 'Nivel completado', points: LEVEL_COMPLETE_BONUS }];
+    if (!this.tookDamageThisLevel) bonuses.push({ label: 'Sin daño', points: NO_DAMAGE_BONUS });
+    if (last && this.hearts > 0) {
+      const lifeLabel = this.hearts === 1 ? '1 vida restante' : `${this.hearts} vidas restantes`;
+      bonuses.push({ label: lifeLabel, points: this.hearts * HEART_SURVIVAL_BONUS });
     }
 
-    const { index, unlocked, justCompleted } = unlockLetterForLevel(this.levelIndex);
-    this.unbindExitButton();
-    this.unbindMobileHud();
-    this.destroyTouch();
+    this.showWinBonuses({ last, bonuses }, () => {
+      /* Última corona: suma puntos pero no da vida (el juego termina) */
+      const heartsBefore = this.hearts;
+      if (!last) this.checkScoreHearts(null, null);
+      const gainedLifeFromCrown = !last && this.hearts > heartsBefore;
 
-    const goReveal = () => {
-      this.scene.start('letterReveal', {
-        revealIndex: index,
-        unlocked,
-        justCompleted,
-        finale: last,
-        preview: false,
-        score: this.score,
-        continueData: last
-          ? { toMenu: true, score: this.score }
-          : { level: this.levelIndex + 1, score: this.score, hearts: this.hearts },
-      });
+      try {
+        const best = Number(localStorage.getItem('oly-best-score') || 0);
+        if (this.score > best) localStorage.setItem('oly-best-score', String(this.score));
+      } catch {
+        /* ignore */
+      }
+
+      const { index, unlocked, justCompleted } = unlockLetterForLevel(this.levelIndex);
+      this.unbindExitButton();
+      this.unbindMobileHud();
+      this.destroyTouch();
+
+      const goReveal = () => {
+        this.scene.start('letterReveal', {
+          revealIndex: index,
+          unlocked,
+          justCompleted,
+          finale: last,
+          preview: false,
+          score: this.score,
+          continueData: last
+            ? { toMenu: true, score: this.score }
+            : { level: this.levelIndex + 1, score: this.score, hearts: this.hearts },
+        });
+      };
+
+      if (gainedLifeFromCrown) {
+        this.time.delayedCall(2200, goReveal);
+      } else {
+        goReveal();
+      }
+    });
+  }
+
+  showWinBonuses({ last, bonuses }, onComplete) {
+    if (!bonuses.length) {
+      onComplete();
+      return;
+    }
+
+    const depth = 90;
+    const ui = [];
+    const track = (obj) => {
+      ui.push(obj);
+      return obj;
     };
 
-    if (gainedLifeFromCrown) {
-      this.time.delayedCall(2200, goReveal);
-    } else {
-      goReveal();
-    }
+    track(this.add.rectangle(WIDTH / 2, HEIGHT / 2, WIDTH, HEIGHT, 0x0a0014, 0.78)
+      .setScrollFactor(0).setDepth(depth));
+
+    track(this.add.text(WIDTH / 2, HEIGHT * 0.26, last ? '¡JUEGO COMPLETADO!' : '¡NIVEL COMPLETADO!', {
+      fontFamily: '"Press Start 2P", monospace',
+      fontSize: 16,
+      color: '#ffea00',
+      align: 'center',
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(depth + 1));
+
+    const startY = HEIGHT * 0.4;
+    const gap = 38;
+    const lineDuration = 550;
+    const startDelay = 350;
+    const totalBonus = bonuses.reduce((sum, bonus) => sum + bonus.points, 0);
+
+    bonuses.forEach((bonus, i) => {
+      const y = startY + i * gap;
+      const label = track(this.add.text(WIDTH / 2 - 10, y, bonus.label, {
+        fontFamily: 'Fredoka, Arial',
+        fontSize: 22,
+        color: '#fff7fb',
+        stroke: '#5b2b16',
+        strokeThickness: 4,
+      }).setOrigin(1, 0.5).setScrollFactor(0).setDepth(depth + 2).setAlpha(0));
+
+      const pts = track(this.add.text(WIDTH / 2 + 10, y, `+${bonus.points}`, {
+        fontFamily: 'Fredoka, Arial',
+        fontSize: 26,
+        color: '#ffd76a',
+        stroke: '#5b2b16',
+        strokeThickness: 5,
+      }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(depth + 2).setAlpha(0).setScale(0.6));
+
+      this.time.delayedCall(startDelay + i * lineDuration, () => {
+        this.score += bonus.points;
+        if (this.scoreText) this.scoreText.setText(String(this.score));
+        this.syncMobileHud();
+        this.sound.play('star', { volume: 0.28 });
+        this.tweens.add({
+          targets: [label, pts],
+          alpha: 1,
+          duration: 200,
+          ease: 'Sine.out',
+        });
+        this.tweens.add({
+          targets: pts,
+          scale: 1,
+          duration: 280,
+          ease: 'Back.easeOut',
+        });
+      });
+    });
+
+    const totalLabel = track(this.add.text(
+      WIDTH / 2,
+      startY + bonuses.length * gap + 12,
+      `Total +${totalBonus}`,
+      {
+        fontFamily: '"Press Start 2P", monospace',
+        fontSize: 11,
+        color: '#00f5ff',
+      },
+    ).setOrigin(0.5).setScrollFactor(0).setDepth(depth + 2).setAlpha(0));
+
+    const finishAt = startDelay + bonuses.length * lineDuration + 450;
+    this.time.delayedCall(finishAt - 200, () => {
+      this.tweens.add({ targets: totalLabel, alpha: 1, duration: 250 });
+    });
+    this.time.delayedCall(finishAt + 500, () => {
+      ui.forEach((obj) => obj.destroy());
+      onComplete();
+    });
   }
 
   showBanner(title, onOk, okLabel = 'Seguir', options = {}) {
