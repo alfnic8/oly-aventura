@@ -15,7 +15,7 @@ const MAX_HEARTS = 5;
 const STAND_ABOVE_PLATFORM = 4;
 /** Extra life every N points (stars, crystals, stomps, bonuses). */
 const HEART_SCORE_STEP = 5000;
-/** Bonus per remaining heart when finishing a level */
+/** Bonus per remaining heart when finishing the game (last level). */
 const HEART_SURVIVAL_BONUS = 400;
 
 export class GameScene extends Phaser.Scene {
@@ -679,8 +679,7 @@ export class GameScene extends Phaser.Scene {
     const last = this.levelIndex >= LEVELS.length - 1;
     let bonus = 500;
     if (!this.tookDamageThisLevel) bonus += 300;
-    const survivalBonus = this.hearts * HEART_SURVIVAL_BONUS;
-    bonus += survivalBonus;
+    if (last) bonus += this.hearts * HEART_SURVIVAL_BONUS;
     /* Última corona: suma puntos pero no da vida (el juego termina) */
     const heartsBefore = this.hearts;
     this.addScore(bonus, null, null, { grantHearts: !last });
